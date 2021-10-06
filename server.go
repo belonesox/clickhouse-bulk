@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -64,6 +65,11 @@ func (server *Server) writeHandler(c echo.Context) error {
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
+		return c.String(http.StatusOK, "")
+	}
+	// Disabling SELECT for non-admin users
+	if user != "admin" && !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
+		strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
 		return c.String(http.StatusOK, "")
 	}
 	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
