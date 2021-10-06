@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"runtime/debug"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -117,6 +119,8 @@ func (server *Server) Shutdown(ctx context.Context) error {
 // InitServer - run server
 func InitServer(listen string, collector *Collector, debug bool) *Server {
 	server := NewServer(listen, collector, debug)
+
+	// server.echo.Group("/play/*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets)))
 	server.echo.POST("/", server.writeHandler)
 	server.echo.GET("/status", server.statusHandler)
 	server.echo.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
@@ -147,8 +151,12 @@ func RunServer(cnf Config) {
 	dumper := NewDumper(cnf.DumpDir)
 	sender := NewClickhouse(cnf.Clickhouse.DownTimeout, cnf.Clickhouse.ConnectTimeout, cnf.Clickhouse.tlsServerName, cnf.Clickhouse.tlsSkipVerify)
 	sender.Dumper = dumper
-	for _, url := range cnf.Clickhouse.Servers {
-		sender.AddServer(url)
+	targets_ := make([]*middleware.ProxyTarget, 0)
+	for _, url_ := range cnf.Clickhouse.Servers {
+		sender.AddServer(url_)
+		url__, _ := url.Parse(url_)
+		pt_ := middleware.ProxyTarget{URL: url__}
+		targets_ = append(targets_, &pt_)
 	}
 
 	collect := NewCollector(sender, cnf.FlushCount, cnf.FlushInterval, cnf.CleanInterval, cnf.RemoveQueryID)
@@ -158,6 +166,7 @@ func RunServer(cnf Config) {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := InitServer(cnf.Listen, collect, cnf.Debug)
+	srv.echo.Group("/play/*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets_)))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
