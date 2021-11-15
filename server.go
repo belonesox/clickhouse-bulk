@@ -166,7 +166,7 @@ func RunServer(cnf Config) {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := InitServer(cnf.Listen, collect, cnf.Debug)
-	srv.echo.Group("/play/*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets_)))
+	srv.echo.Group("/play*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets_)))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
