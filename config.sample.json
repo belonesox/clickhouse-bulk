@@ -1,5 +1,5 @@
 {
-  "listen": ":8124",
+  "listen": ":8123",
   "flush_count": 10000,
   "flush_interval": 1000,
   "clean_interval": 0,
@@ -13,7 +13,7 @@
     "tls_server_name": "",
     "insecure_tls_skip_verify": false,
     "servers": [
-      "http://192.168.4.105:8129"
+      "http://127.0.0.1:8129"
     ]
   }
 }
