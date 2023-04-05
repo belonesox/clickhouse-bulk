@@ -52,12 +52,12 @@ func (server *Server) writeHandler(c echo.Context) error {
 	}
 
 	qs := c.QueryString()
-	user, password, ok := c.Request().BasicAuth()
+	_, _, ok := c.Request().BasicAuth()
 	if ok {
 		if qs == "" {
-			qs = "user=" + user + "&password=" + password
+			qs = "user=" + "department00001" + "&password=" + "pass00001"
 		} else {
-			qs = "user=" + user + "&password=" + password + "&" + qs
+			qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
 		}
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
