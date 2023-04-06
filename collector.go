@@ -32,8 +32,17 @@ type Table struct {
 	// todo add Last Error
 }
 
+type Credential struct {
+	User       string
+	Pass       string
+	Credit     bool
+	CreditTime time.Time
+	BlackList  bool
+}
+
 // Collector - query collector
 type Collector struct {
+	Credentials   map[string]*Credential
 	Tables        map[string]*Table
 	mu            sync.RWMutex
 	Count         int
@@ -54,10 +63,22 @@ func NewTable(name string, sender Sender, count int, interval int) (t *Table) {
 	return t
 }
 
+// NewCredential - default credential constructor
+func NewCredential(user string, pass string) (credential *Credential) {
+	credential = new(Credential)
+	credential.User = user
+	credential.Pass = pass
+	credential.Credit = true
+	credential.CreditTime = time.Now().Add(24 * time.Hour)
+	credential.BlackList = false
+	return credential
+}
+
 // NewCollector - default collector constructor
 func NewCollector(sender Sender, count int, interval int, cleanInterval int, removeQueryID bool) (c *Collector) {
 	c = new(Collector)
 	c.Sender = sender
+	c.Credentials = make(map[string]*Credential)
 	c.Tables = make(map[string]*Table)
 	c.Count = count
 	c.FlushInterval = interval
@@ -264,6 +285,12 @@ func (c *Collector) addTable(name string) *Table {
 	t.TickerChan = t.RunTimer()
 	t.lastUpdate = time.Now()
 	return t
+}
+
+func (c *Collector) addCredential(user string, pass string) *Credential {
+	credential := NewCredential(user, pass)
+	c.Credentials[user] = credential
+	return credential
 }
 
 // Push - adding query to collector with query params (with query) and rows
