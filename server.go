@@ -75,7 +75,7 @@ func (server *Server) writeHandler(c echo.Context) error {
 		qs := c.QueryString()
 		if server.UserAuth(c, user, pass) {
 			if qs == "" {
-				qs = "user=" + "department00001" + "&password=" + "pass00001" // надо заменить на какого-то дефолтного пользователя dmicp
+				qs = "user=" + "department00001" + "&password=" + "pass00001"
 			} else {
 				qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
 			}
