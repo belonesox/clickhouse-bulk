@@ -1,7 +1,7 @@
 {
-  "listen": ":8124",
+  "listen": ":8123",
   "flush_count": 10000,
-  "flush_interval": 1000,
+  "flush_interval": 10000,
   "clean_interval": 0,
   "remove_query_id": true,
   "dump_check_interval": 300,
@@ -13,7 +13,7 @@
     "tls_server_name": "",
     "insecure_tls_skip_verify": false,
     "servers": [
-      "http://192.168.4.105:8129"
+      "http://10.11.20.97:8129"
     ]
   }
 }

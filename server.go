@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -43,39 +44,61 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 	return &Server{listen, collector, debug, echo.New()}
 }
 
+func (server *Server) UserAuth(c echo.Context, user string, pass string) bool {
+	credential, exist := server.Collector.Credentials[user]
+	if exist {
+		if credential.CreditTime.Compare(time.Now()) > 0 {
+			fmt.Println("Already in credentials")
+			return true
+		}
+	}
+	fmt.Println("NOT in credentials")
+	qs := c.QueryString()
+	s := "SELECT timezone()" // просто запрос, чтобы посмотреть можем ли мы протйти
+	qs = "user=" + user + "&password=" + pass
+	// qs = "user=" + "department70000" + "&password=" + "70000" // это чтобы проверить, что с некоректным паролем и пользователем не пройдет
+	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+	if status == 403 { // код 403 сообщает, что не удалось войти
+		log.Printf("INFO:[%+v]", resp)
+		return false
+	}
+	go server.Collector.addCredential(user, pass)
+	return true
+}
+
 func (server *Server) writeHandler(c echo.Context) error {
 	q, _ := ioutil.ReadAll(c.Request().Body)
 	s := string(q)
-
+	user, pass, ok := c.Request().BasicAuth()
 	if server.Debug {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
-
-	qs := c.QueryString()
-	_, _, ok := c.Request().BasicAuth()
 	if ok {
-		if qs == "" {
-			qs = "user=" + "department00001" + "&password=" + "pass00001"
-		} else {
-			qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
+		qs := c.QueryString()
+		if server.UserAuth(c, user, pass) {
+			if qs == "" {
+				qs = "user=" + "department00001" + "&password=" + "pass00001"
+			} else {
+				qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
+			}
+			params, content, insert := server.Collector.ParseQuery(qs, s)
+			if insert {
+				if len(content) == 0 {
+					log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
+					return c.String(http.StatusInternalServerError, "Empty insert\n")
+				}
+				go server.Collector.Push(params, content)
+				return c.String(http.StatusOK, "")
+			}
+			if user != "admin" && !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
+				strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
+				return c.String(http.StatusOK, "")
+			}
+			resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+			return c.String(status, resp)
 		}
 	}
-	params, content, insert := server.Collector.ParseQuery(qs, s)
-	if insert {
-		if len(content) == 0 {
-			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
-			return c.String(http.StatusInternalServerError, "Empty insert\n")
-		}
-		go server.Collector.Push(params, content)
-		return c.String(http.StatusOK, "")
-	}
-	// Disabling SELECT for non-admin users
-	if user != "admin" && !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
-		strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
-		return c.String(http.StatusOK, "")
-	}
-	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	return c.String(status, resp)
+	return c.String(403, "Authentication failed")
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
