@@ -43,25 +43,25 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 	return &Server{listen, collector, debug, echo.New()}
 }
 
-func (server *Server) AddCredentialsUser(c echo.Context, user string, pass string) bool {
+func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass string) bool {
 	qs := c.QueryString()
 	s := "SELECT timezone()"
 	qs = "user=" + user + "&password=" + pass
 	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	if status == 403 {
+	if status != 200 {
 		log.Printf("INFO:[%+v]", resp)
 		return false
 	}
-	server.Collector.addCredential(user, pass)
 	return true
 }
 
 func (server *Server) CheckCredentialsUser(c echo.Context, user string, pass string) bool {
 	credential, exist := server.Collector.Credentials[user]
-	if exist && credential.CreditTime.Compare(time.Now()) > 0 {
+	if exist && credential.CreditTime.Compare(time.Now()) > 0 ||
+		server.CheckUserClickHouse(c, user, pass) {
 		return true
 	} else {
-		return server.AddCredentialsUser(c, user, pass)
+		return false
 	}
 }
 
