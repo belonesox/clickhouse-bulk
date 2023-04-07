@@ -4,6 +4,7 @@ require (
 	4d63.com/gochecknoglobals v0.0.0-20201008074935-acfc0b28355a // indirect
 	dmitri.shuralyov.com/go/generated v0.0.0-20170818220700-b1254a446363 // indirect
 	github.com/corthmann/go-time-intervals v0.0.0-20190625085138-4c18cb04b8d6
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/gordonklaus/ineffassign v0.0.0-20201107091007-3b93a8888063 // indirect
 	github.com/jgautheron/goconst v0.0.0-20201117150253-ccae5bf973f3 // indirect
 	github.com/labstack/echo v3.3.10+incompatible

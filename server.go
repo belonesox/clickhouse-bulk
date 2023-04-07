@@ -48,11 +48,11 @@ func (server *Server) UserAuth(c echo.Context, user string, pass string) bool {
 	credential, exist := server.Collector.Credentials[user]
 	if exist {
 		if credential.CreditTime.Compare(time.Now()) > 0 {
-			fmt.Println("Already in credentials")
+			// fmt.Println("Already in credentials")
 			return true
 		}
 	}
-	fmt.Println("NOT in credentials")
+	// fmt.Println("NOT in credentials")
 	qs := c.QueryString()
 	s := "SELECT timezone()" // просто запрос, чтобы посмотреть можем ли мы протйти
 	qs = "user=" + user + "&password=" + pass
@@ -66,36 +66,61 @@ func (server *Server) UserAuth(c echo.Context, user string, pass string) bool {
 	return true
 }
 
+// Эта функция не учитывает, что админ тоже может делать insert, которые необходимо сложить в общую таблицу (надо добавить такую функцию)
+func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
+	if qs == "" {
+		qs = "user=" + user + "&password=" + pass
+	} else {
+		qs = "user=" + user + "&password=" + pass + "&" + qs
+	}
+	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+	return c.String(status, resp)
+}
+
+func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string, isSelect bool) error {
+	if qs == "" {
+		qs = "user=" + "department00001" + "&password=" + "pass00001"
+	} else {
+		qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
+	}
+	params, content, insert := server.Collector.ParseQuery(qs, s)
+	fmt.Println(s)
+	if insert && !isSelect {
+		if len(content) == 0 {
+			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
+			return c.String(http.StatusInternalServerError, "Empty insert\n")
+		}
+		go server.Collector.Push(params, content)
+		return c.String(http.StatusOK, "")
+	} else if strings.HasPrefix(s, "SELECT count() FROM system.databases") ||
+		strings.HasPrefix(s, "SELECT version()") ||
+		strings.HasPrefix(s, "SELECT timezone()") {
+		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+		return c.String(status, resp)
+	} else {
+		return c.String(http.StatusOK, "")
+	}
+}
+
 func (server *Server) writeHandler(c echo.Context) error {
 	q, _ := ioutil.ReadAll(c.Request().Body)
 	s := string(q)
+	// fmt.Printf("q: %+v \n", string(q))
+	// fmt.Printf("s: %+v \n", s)
 	user, pass, ok := c.Request().BasicAuth()
 	if server.Debug {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
 	if ok {
 		qs := c.QueryString()
+		// fmt.Printf("qs: %+v \n", qs)
 		if server.UserAuth(c, user, pass) {
-			if qs == "" {
-				qs = "user=" + "department00001" + "&password=" + "pass00001"
+			isAdmin, isSelect := server.Collector.specialCredit(user, s)
+			if isAdmin { // Если админ, пусть делает любые запросы
+				return server.AdminWriteHandler(c, s, qs, user, pass)
 			} else {
-				qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
+				return server.UserWriteHandler(c, s, qs, user, pass, isSelect)
 			}
-			params, content, insert := server.Collector.ParseQuery(qs, s)
-			if insert {
-				if len(content) == 0 {
-					log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
-					return c.String(http.StatusInternalServerError, "Empty insert\n")
-				}
-				go server.Collector.Push(params, content)
-				return c.String(http.StatusOK, "")
-			}
-			if user != "admin" && !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
-				strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
-				return c.String(http.StatusOK, "")
-			}
-			resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-			return c.String(status, resp)
 		}
 	}
 	return c.String(403, "Authentication failed")

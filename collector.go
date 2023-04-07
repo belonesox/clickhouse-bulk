@@ -330,6 +330,18 @@ func (c *Collector) Push(paramsIn string, content string) {
 	pushCounter.Inc()
 }
 
+func (c *Collector) specialCredit(user string, s string) (isAdmin bool, isSelect bool) {
+	isAdmin = false
+	isSelect = false
+	if user == "admin" {
+		isAdmin = true
+	}
+	if strings.Contains(s, "SELECT") {
+		isSelect = true
+	}
+	return isAdmin, isSelect
+}
+
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)
 func (c *Collector) ParseQuery(queryString string, body string) (params string, content string, insert bool) {
 	i := strings.Index(queryString, "query=")
