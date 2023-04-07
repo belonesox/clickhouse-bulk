@@ -334,16 +334,15 @@ func (c *Collector) Push(paramsIn string, content string) {
 	pushCounter.Inc()
 }
 
-func (c *Collector) specialCredit(user string, s string) (isAdmin bool, isSelect bool) {
-	isAdmin = false
-	isSelect = false
+func (c *Collector) Role(user string) (role string) {
 	if user == "admin" {
-		isAdmin = true
+		return user
 	}
-	if strings.Contains(s, "SELECT") {
-		isSelect = true
+	credetial, ok := c.Credentials[user]
+	if ok && credetial.BlackList {
+		return "blacklist"
 	}
-	return isAdmin, isSelect
+	return "normal"
 }
 
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)

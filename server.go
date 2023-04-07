@@ -43,13 +43,7 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 	return &Server{listen, collector, debug, echo.New()}
 }
 
-func (server *Server) UserAuth(c echo.Context, user string, pass string) bool {
-	credential, exist := server.Collector.Credentials[user]
-	if exist {
-		if credential.CreditTime.Compare(time.Now()) > 0 {
-			return true
-		}
-	}
+func (server *Server) AddCredentialsUser(c echo.Context, user string, pass string) bool {
 	qs := c.QueryString()
 	s := "SELECT timezone()"
 	qs = "user=" + user + "&password=" + pass
@@ -60,6 +54,15 @@ func (server *Server) UserAuth(c echo.Context, user string, pass string) bool {
 	}
 	server.Collector.addCredential(user, pass)
 	return true
+}
+
+func (server *Server) CheckCredentialsUser(c echo.Context, user string, pass string) bool {
+	credential, exist := server.Collector.Credentials[user]
+	if exist && credential.CreditTime.Compare(time.Now()) > 0 {
+		return true
+	} else {
+		return server.AddCredentialsUser(c, user, pass)
+	}
 }
 
 // Эта функция не учитывает, что админ тоже может делать insert, которые необходимо сложить в общую таблицу (надо добавить такую функцию)
@@ -73,14 +76,14 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 	return c.String(status, resp)
 }
 
-func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string, isSelect bool) error {
+func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
 	if qs == "" {
-		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp"
+		qs = "user=" + "department00001" + "&password=" + "pass00001"
 	} else {
-		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp" + "&" + qs
+		qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
-	if insert && !isSelect {
+	if insert && !strings.Contains(s, "SELECT") {
 		if len(content) == 0 {
 			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
@@ -106,17 +109,22 @@ func (server *Server) writeHandler(c echo.Context) error {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
 	if ok {
+		role := server.Collector.Role(user)
 		qs := c.QueryString()
-		if server.UserAuth(c, user, pass) {
-			isAdmin, isSelect := server.Collector.specialCredit(user, s)
-			if isAdmin { // Если админ, пусть делает любые запросы
-				return server.AdminWriteHandler(c, s, qs, user, pass)
+		if role == "admin" {
+			return server.AdminWriteHandler(c, s, qs, user, pass)
+		} else if role == "normal" {
+			if server.CheckCredentialsUser(c, user, pass) {
+				return server.UserWriteHandler(c, s, qs, user, pass)
 			} else {
-				return server.UserWriteHandler(c, s, qs, user, pass, isSelect)
+				return c.String(401, "There is no user with such name or password is incorrect")
 			}
+		} else {
+			return c.String(403, "User in blacklist")
 		}
+	} else {
+		return c.String(400, "Authentication failed because of bad request")
 	}
-	return c.String(403, "Authentication failed")
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
