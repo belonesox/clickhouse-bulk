@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -48,21 +47,18 @@ func (server *Server) UserAuth(c echo.Context, user string, pass string) bool {
 	credential, exist := server.Collector.Credentials[user]
 	if exist {
 		if credential.CreditTime.Compare(time.Now()) > 0 {
-			// fmt.Println("Already in credentials")
 			return true
 		}
 	}
-	// fmt.Println("NOT in credentials")
 	qs := c.QueryString()
-	s := "SELECT timezone()" // просто запрос, чтобы посмотреть можем ли мы протйти
+	s := "SELECT timezone()"
 	qs = "user=" + user + "&password=" + pass
-	// qs = "user=" + "department70000" + "&password=" + "70000" // это чтобы проверить, что с некоректным паролем и пользователем не пройдет
 	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	if status == 403 { // код 403 сообщает, что не удалось войти
+	if status == 403 {
 		log.Printf("INFO:[%+v]", resp)
 		return false
 	}
-	go server.Collector.addCredential(user, pass)
+	server.Collector.addCredential(user, pass)
 	return true
 }
 
@@ -84,7 +80,6 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 		qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
-	fmt.Println(s)
 	if insert && !isSelect {
 		if len(content) == 0 {
 			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
@@ -98,6 +93,7 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
 		return c.String(status, resp)
 	} else {
+		server.Collector.blackListCredential(user)
 		return c.String(http.StatusOK, "")
 	}
 }
@@ -105,15 +101,12 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 func (server *Server) writeHandler(c echo.Context) error {
 	q, _ := ioutil.ReadAll(c.Request().Body)
 	s := string(q)
-	// fmt.Printf("q: %+v \n", string(q))
-	// fmt.Printf("s: %+v \n", s)
 	user, pass, ok := c.Request().BasicAuth()
 	if server.Debug {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
 	if ok {
 		qs := c.QueryString()
-		// fmt.Printf("qs: %+v \n", qs)
 		if server.UserAuth(c, user, pass) {
 			isAdmin, isSelect := server.Collector.specialCredit(user, s)
 			if isAdmin { // Если админ, пусть делает любые запросы

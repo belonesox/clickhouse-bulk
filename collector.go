@@ -293,6 +293,10 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 	return credential
 }
 
+func (c *Collector) blackListCredential(user string) {
+	c.Credentials[user].BlackList = true
+}
+
 // Push - adding query to collector with query params (with query) and rows
 func (c *Collector) Push(paramsIn string, content string) {
 	// as we are using all params as a table key, we have to remove query_id
