@@ -78,9 +78,9 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 
 func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
 	if qs == "" {
-		qs = "user=" + "department00001" + "&password=" + "pass00001"
+		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp"
 	} else {
-		qs = "user=" + "department00001" + "&password=" + "pass00001" + "&" + qs
+		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp" + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
 	if insert && !strings.Contains(s, "SELECT") {
