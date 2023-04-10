@@ -48,9 +48,16 @@ func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass stri
 	s := "SELECT timezone()"
 	qs = "user=" + user + "&password=" + pass
 	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+
 	if status != 200 {
 		log.Printf("INFO:[%+v]", resp)
+		if server.Debug {
+			log.Printf("DEBUG: CheckUserClickHouse can`t add user [%+v]\n", user)
+		}
 		return false
+	}
+	if server.Debug {
+		log.Printf("DEBUG: CheckUserClickHouse user [%+v] successfully added \n", user)
 	}
 	return true
 }
@@ -59,14 +66,23 @@ func (server *Server) CheckCredentialsUser(c echo.Context, user string, pass str
 	credential, exist := server.Collector.Credentials[user]
 	if exist && credential.CreditTime.Compare(time.Now()) > 0 ||
 		server.CheckUserClickHouse(c, user, pass) {
+		if server.Debug {
+			log.Printf("DEBUG: CheckCredentialsUser user [%+v] already exist in Credential\n", user)
+		}
 		return true
 	} else {
+		if server.Debug {
+			log.Printf("DEBUG: CheckCredentialsUser user [%+v] NOT in Credential\n", user)
+		}
 		return false
 	}
 }
 
 // Эта функция не учитывает, что админ тоже может делать insert, которые необходимо сложить в общую таблицу (надо добавить такую функцию)
 func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
+	if server.Debug {
+		log.Printf("DEBUG: AdminWriteHandler\n")
+	}
 	if qs == "" {
 		qs = "user=" + user + "&password=" + pass
 	} else {
@@ -84,24 +100,39 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
 	if insert && !strings.Contains(s, "SELECT") {
+		if server.Debug {
+			log.Printf("DEBUG: UserWriteHandler find INSERT in query\n")
+		}
 		if len(content) == 0 {
 			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
+		if server.Debug {
+			log.Printf("DEBUG: UserWriteHandler pushed content:[%+v] with params: [%+v]\n", content, params)
+		}
 		return c.String(http.StatusOK, "")
 	} else if strings.HasPrefix(s, "SELECT count() FROM system.databases") ||
 		strings.HasPrefix(s, "SELECT version()") ||
 		strings.HasPrefix(s, "SELECT timezone()") {
 		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+		if server.Debug {
+			log.Printf("DEBUG: UserWriteHandler find SELECT version/ timezone/ ... from system.database in query\n")
+		}
 		return c.String(status, resp)
 	} else {
+		if server.Debug {
+			log.Printf("DEBUG: UserWriteHandler set blackListCredential for user: [%+v]\n", user)
+		}
 		server.Collector.blackListCredential(user)
 		return c.String(http.StatusOK, "")
 	}
 }
 
 func (server *Server) writeHandler(c echo.Context) error {
+	if server.Debug {
+		log.Printf("DEBUG: writeHandler: Tables count: [%+v]\n", len(server.Collector.Tables))
+	}
 	q, _ := ioutil.ReadAll(c.Request().Body)
 	s := string(q)
 	user, pass, ok := c.Request().BasicAuth()
