@@ -64,7 +64,7 @@ func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass stri
 
 func (server *Server) CheckCredentialsUser(c echo.Context, user string, pass string) bool {
 	credential, exist := server.Collector.Credentials[user]
-	if exist && credential.CreditTime.Compare(time.Now()) > 0 ||
+	if exist && credential.CreditTime.Before(time.Now()) ||
 		server.CheckUserClickHouse(c, user, pass) {
 		if server.Debug {
 			log.Printf("DEBUG: CheckCredentialsUser user [%+v] already exist in Credential\n", user)
