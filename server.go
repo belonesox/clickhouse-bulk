@@ -58,6 +58,7 @@ func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass stri
 	}
 	if server.Debug {
 		log.Printf("DEBUG: CheckUserClickHouse user [%+v] successfully added \n", user)
+		server.Collector.addCredential(user, pass)
 	}
 	return true
 }
@@ -124,7 +125,7 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 		if server.Debug {
 			log.Printf("DEBUG: UserWriteHandler set blackListCredential for user: [%+v]\n", user)
 		}
-		server.Collector.blackListCredential(user)
+		server.Collector.addToBlacklist(user)
 		return c.String(http.StatusOK, "")
 	}
 }
@@ -241,6 +242,20 @@ func RunServer(cnf Config) {
 
 	collect := NewCollector(sender, cnf.FlushCount, cnf.FlushInterval, cnf.CleanInterval, cnf.RemoveQueryID)
 
+	// run blacklist file updating
+	go func() {
+		for {
+			ctxBlackList := context.Background()
+			ctxBlackList, cancel1 := context.WithTimeout(ctxBlackList, 5*time.Second) // Cancel in 5 seconds
+			defer cancel1()
+			go collect.BlackListChecker(1) // Call as a goroutine
+			select {
+			case <-ctxBlackList.Done(): // When time is out
+				log.Printf("INFO: stop using Blacklist")
+			}
+		}
+	}()
+
 	// send collected data on SIGTERM and exit
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
@@ -265,7 +280,6 @@ func RunServer(cnf Config) {
 	if cnf.DumpCheckInterval >= 0 {
 		dumper.Listen(sender, cnf.DumpCheckInterval)
 	}
-
 	err := srv.Start()
 	if err != nil {
 		log.Printf("ListenAndServe: %+v\n", err)

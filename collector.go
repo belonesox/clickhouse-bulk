@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/url"
 	"regexp"
 	"strings"
@@ -287,14 +288,42 @@ func (c *Collector) addTable(name string) *Table {
 	return t
 }
 
+// Generate new credential object
 func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass)
 	c.Credentials[user] = credential
 	return credential
 }
 
-func (c *Collector) blackListCredential(user string) {
-	c.Credentials[user].BlackList = true
+func (c *Collector) BlackListChecker(period time.Duration) {
+	t := time.NewTicker(period * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			c.checkBlackList("blacklist.txt")
+		}
+	}
+}
+
+// Go throught black list and add blacklist flag to credentials for user in blacklist file
+func (c *Collector) checkBlackList(file string) {
+	blacklist, err := ReadList(file)
+	if err == nil {
+		for i := 0; i < len(blacklist); i++ {
+			c.addToBlacklist(blacklist[i])
+		}
+	}
+}
+
+// Set blacklist flag for user credentials
+func (c *Collector) addToBlacklist(user string) {
+	_, ok := c.Credentials[user]
+	log.Printf("INFO:OK %+v %+v try add to blacklist", user, ok)
+	if ok {
+		c.Credentials[user].BlackList = true
+		log.Printf("INFO: User %+v added to blacklist", user)
+	}
 }
 
 // Push - adding query to collector with query params (with query) and rows

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"log"
 	"os"
@@ -103,4 +104,60 @@ func ReadConfig(configFile string) (Config, error) {
 	}
 
 	return cnf, err
+}
+
+// Count not empty lines in txt file
+func ListLen(list string) (int, error) {
+	file, err := os.Open(list)
+	if err != nil {
+		log.Printf("INFO: problems with reading black-list [%+v]", err)
+		return 0, err
+	}
+	defer file.Close()
+	fileScanner := bufio.NewScanner(file)
+
+	blacklist_len := 0
+	for fileScanner.Scan() {
+		if len(fileScanner.Text()) == 0 {
+			continue
+		}
+		blacklist_len++
+	}
+	return blacklist_len, err
+}
+
+// Read txt file with and return list
+func ReadList(blacklist string) ([]string, error) {
+	bl_len, err := ListLen(blacklist)
+	if err != nil {
+		if err != nil {
+			log.Printf("INFO: problems with reading black-list [%+v]", err)
+			return nil, err
+		}
+	}
+
+	file, err := os.Open(blacklist)
+	if err != nil {
+		log.Printf("INFO: problems with reading black-list [%+v]", err)
+		return nil, err
+	}
+
+	defer file.Close()
+	bl := make([]string, bl_len, 65535)
+
+	i := 0
+	fileScanner := bufio.NewScanner(file)
+	for fileScanner.Scan() {
+		user_name := fileScanner.Text()
+		if len(user_name) == 0 {
+			continue
+		}
+		bl[i] = strings.TrimSpace(user_name)
+		i++
+	}
+
+	if err := fileScanner.Err(); err != nil {
+		log.Printf("INFO: problems with reading black-list [%+v]", err)
+	}
+	return bl, nil
 }
