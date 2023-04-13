@@ -63,7 +63,7 @@ func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass stri
 	return true
 }
 
-func (server *Server) CheckUserInCH(user string, pass string) {
+func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 	s := "SELECT timezone()"
 	qs := "user=" + user + "&password=" + pass
 	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
@@ -89,21 +89,24 @@ func (server *Server) CheckUserInCH(user string, pass string) {
 	return
 }
 
-func (s *Server) BlackListChecker(period time.Duration) {
+func (s *Server) ChanelCHCredentials(period time.Duration) {
 	t := time.NewTicker(period * time.Second)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
-			s.checkBlackList()
+			s.CHCheckCredentialsAll()
 		}
 	}
 }
 
-func (s *Server) checkBlackList() {
+func (s *Server) CHCheckCredentialsAll() {
+	if s.Debug {
+		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
+	}
 	for user, _ := range s.Collector.Credentials {
-		s.CheckUserInCH(user, s.Collector.Credentials[user].Pass)
-		log.Printf("checkBlackList")
+		s.CHCheckCredentialsUser(user, s.Collector.Credentials[user].Pass)
+
 	}
 }
 
@@ -176,6 +179,9 @@ func (server *Server) writeHandler(c echo.Context) error {
 			return server.UserWriteHandler(c, s, qs, user, pass)
 		} else if role == "unknown" {
 			server.Collector.addCredential(user, pass)
+		} else {
+			log.Printf("There is no [%+v] user in CH or password incorrect", user)
+			return c.String(http.StatusForbidden, "")
 		}
 	}
 	return c.String(400, "Authentication failed because of bad request")
@@ -274,12 +280,12 @@ func RunServer(cnf Config) {
 	// run blacklist file updating
 	go func() {
 		for {
-			ctxBlackList := context.Background()
-			ctxBlackList, Blacklistcancel := context.WithCancel(ctxBlackList)
-			defer Blacklistcancel()
-			go srv.BlackListChecker(60)
+			ctxCHCredentialsChecker := context.Background()
+			ctxCHCredentialsChecker, CHCredentialsCancel := context.WithCancel(ctxCHCredentialsChecker)
+			defer CHCredentialsCancel()
+			go srv.ChanelCHCredentials(60)
 			select {
-			case <-ctxBlackList.Done():
+			case <-ctxCHCredentialsChecker.Done():
 				log.Printf("INFO: stop using Blacklist")
 			}
 		}
