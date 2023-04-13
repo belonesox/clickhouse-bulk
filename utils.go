@@ -30,6 +30,8 @@ type Config struct {
 	DumpCheckInterval int              `json:"dump_check_interval"`
 	DumpDir           string           `json:"dump_dir"`
 	Debug             bool             `json:"debug"`
+	BlackListPath     string           `json:"black_list_path"`
+	AdminsListPath    string           `json:"admins_list_path"`
 }
 
 // ReadJSON - read json file to struct

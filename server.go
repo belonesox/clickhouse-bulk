@@ -248,9 +248,9 @@ func RunServer(cnf Config) {
 			ctxBlackList := context.Background()
 			ctxBlackList, Blacklistcancel := context.WithCancel(ctxBlackList)
 			defer Blacklistcancel()
-			go collect.BlackListChecker(1) // Call as a goroutine
+			go collect.BlackListChecker(60, cnf.BlackListPath) // Call as a goroutine
 			select {
-			case <-ctxBlackList.Done(): // When time is out
+			case <-ctxBlackList.Done():
 				log.Printf("INFO: stop using Blacklist")
 			}
 		}

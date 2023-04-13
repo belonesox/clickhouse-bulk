@@ -295,13 +295,13 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 	return credential
 }
 
-func (c *Collector) BlackListChecker(period time.Duration) {
+func (c *Collector) BlackListChecker(period time.Duration, file string) {
 	t := time.NewTicker(period * time.Second)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
-			c.checkBlackList("blacklist.txt")
+			c.checkBlackList(file)
 		}
 	}
 }
