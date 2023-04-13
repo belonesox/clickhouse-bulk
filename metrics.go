@@ -36,6 +36,12 @@ var queuedDumps = prometheus.NewGauge(
 		Help: "Actual dump files id directory",
 	})
 
+var departmentsBlocked = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Name: "departments_blocked_counter",
+		Help: "Amount of blocked users",
+	})
+
 // InitMetrics - init prometheus metrics
 func InitMetrics() {
 
@@ -45,4 +51,5 @@ func InitMetrics() {
 	prometheus.MustRegister(queuedDumps)
 	prometheus.MustRegister(goodServers)
 	prometheus.MustRegister(badServers)
+	prometheus.MustRegister(departmentsBlocked)
 }

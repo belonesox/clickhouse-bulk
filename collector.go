@@ -333,7 +333,12 @@ func (c *Collector) Push(paramsIn string, content string) {
 	pushCounter.Inc()
 }
 
-func (c *Collector) Role(user string, pass string) (role string) {
+// Check role for current user;
+// return "admin" if user in adminlist;
+// return "normal" if user Credential.Blacklist = 0;
+// return "blacklist" if user Credential.Blacklist = 1;
+// return "unknown" if user not in Credentials map.
+func (c *Collector) Role(user string) (role string) {
 	if user == "admin" {
 		return user
 	}

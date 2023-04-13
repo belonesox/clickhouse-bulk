@@ -43,26 +43,8 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 	return &Server{listen, collector, debug, echo.New()}
 }
 
-func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass string) bool {
-	qs := c.QueryString()
-	s := "SELECT timezone()"
-	qs = "user=" + user + "&password=" + pass
-	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-
-	if status != 200 {
-		log.Printf("INFO:[%+v]", resp)
-		if server.Debug {
-			log.Printf("DEBUG: CheckUserClickHouse can`t add user [%+v]\n", user)
-		}
-		return false
-	}
-	if server.Debug {
-		log.Printf("DEBUG: CheckUserClickHouse user [%+v] successfully added \n", user)
-		server.Collector.addCredential(user, pass)
-	}
-	return true
-}
-
+// CheckUserClickHouse - Check user pass with "SELECT timezone()" query;
+// return true and add user to Credentials if credentials accepted by CH
 func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 	s := "SELECT timezone()"
 	qs := "user=" + user + "&password=" + pass
@@ -82,7 +64,10 @@ func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 		}
 		return
 	}
-	credential.BlackList = true
+	if exist {
+		credential.BlackList = true
+		departmentsBlocked.Inc()
+	}
 	if server.Debug {
 		log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - PERMISSION DENIED \n", user)
 	}
@@ -110,7 +95,7 @@ func (s *Server) CHCheckCredentialsAll() {
 	}
 }
 
-// Эта функция не учитывает, что админ тоже может делать insert, которые необходимо сложить в общую таблицу (надо добавить такую функцию)
+// AdminWriteHandler - implemtn querys from admin users;
 func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
 	if server.Debug {
 		log.Printf("DEBUG: AdminWriteHandler\n")
@@ -124,6 +109,8 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 	return c.String(status, resp)
 }
 
+// UserWriteHandler - implemtn querys from ordinary users;
+// login and password changed with dmicp
 func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
 	if qs == "" {
 		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp"
@@ -171,7 +158,7 @@ func (server *Server) writeHandler(c echo.Context) error {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
 	if ok {
-		role := server.Collector.Role(user, pass)
+		role := server.Collector.Role(user)
 		qs := c.QueryString()
 		if role == "admin" {
 			return server.AdminWriteHandler(c, s, qs, user, pass)
