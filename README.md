@@ -63,6 +63,7 @@ INSERT INTO table3 (c1, c2, c3) VALUES ('v1', 'v2', 'v3')('v4', 'v5', 'v6')
   "dump_check_interval": 300, // interval for try to send dumps (seconds); -1 to disable
   "debug": false, // log incoming requests
   "dump_dir": "dumps", // directory for dump unsended data (if clickhouse errors)
+  "black_list_path": "blacklist.txt", // path for file with blocked users (querys from this users will be ignored)
   "clickhouse": {
     "down_timeout": 60, // wait if server in down (seconds)
     "connect_timeout": 10, // wait for server connect (seconds)
