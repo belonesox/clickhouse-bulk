@@ -246,8 +246,8 @@ func RunServer(cnf Config) {
 	go func() {
 		for {
 			ctxBlackList := context.Background()
-			ctxBlackList, cancel1 := context.WithTimeout(ctxBlackList, 5*time.Second) // Cancel in 5 seconds
-			defer cancel1()
+			ctxBlackList, Blacklistcancel := context.WithCancel(ctxBlackList)
+			defer Blacklistcancel()
 			go collect.BlackListChecker(1) // Call as a goroutine
 			select {
 			case <-ctxBlackList.Done(): // When time is out
