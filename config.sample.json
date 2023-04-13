@@ -5,10 +5,8 @@
   "clean_interval": 0,
   "remove_query_id": true,
   "dump_check_interval": 300,
-  "debug": true,
+  "debug": false,
   "dump_dir": "dumps",
-  "black_list_path": "blacklist.txt",
-  "admins_list_path": "admins.txt",
   "clickhouse": {
     "down_timeout": 60,
     "connect_timeout": 10,

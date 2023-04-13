@@ -30,8 +30,6 @@ type Config struct {
 	DumpCheckInterval int              `json:"dump_check_interval"`
 	DumpDir           string           `json:"dump_dir"`
 	Debug             bool             `json:"debug"`
-	BlackListPath     string           `json:"black_list_path"`
-	AdminsListPath    string           `json:"admins_list_path"`
 }
 
 // ReadJSON - read json file to struct
@@ -126,40 +124,4 @@ func ListLen(list string) (int, error) {
 		blacklist_len++
 	}
 	return blacklist_len, err
-}
-
-// Read txt file with and return list
-func ReadList(blacklist string) ([]string, error) {
-	bl_len, err := ListLen(blacklist)
-	if err != nil {
-		if err != nil {
-			log.Printf("INFO: problems with reading black-list [%+v]", err)
-			return nil, err
-		}
-	}
-
-	file, err := os.Open(blacklist)
-	if err != nil {
-		log.Printf("INFO: problems with reading black-list [%+v]", err)
-		return nil, err
-	}
-
-	defer file.Close()
-	bl := make([]string, bl_len, 65535)
-
-	i := 0
-	fileScanner := bufio.NewScanner(file)
-	for fileScanner.Scan() {
-		user_name := fileScanner.Text()
-		if len(user_name) == 0 {
-			continue
-		}
-		bl[i] = strings.TrimSpace(user_name)
-		i++
-	}
-
-	if err := fileScanner.Err(); err != nil {
-		log.Printf("INFO: problems with reading black-list [%+v]", err)
-	}
-	return bl, nil
 }

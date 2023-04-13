@@ -292,38 +292,8 @@ func (c *Collector) addTable(name string) *Table {
 func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass)
 	c.Credentials[user] = credential
+	log.Printf("DEBUG: addCredential [%+v] successfully added \n", user)
 	return credential
-}
-
-func (c *Collector) BlackListChecker(period time.Duration, file string) {
-	t := time.NewTicker(period * time.Second)
-	defer t.Stop()
-	for {
-		select {
-		case <-t.C:
-			c.checkBlackList(file)
-		}
-	}
-}
-
-// Go throught black list and add blacklist flag to credentials for user in blacklist file
-func (c *Collector) checkBlackList(file string) {
-	blacklist, err := ReadList(file)
-	if err == nil {
-		for i := 0; i < len(blacklist); i++ {
-			c.addToBlacklist(blacklist[i])
-		}
-	}
-}
-
-// Set blacklist flag for user credentials
-func (c *Collector) addToBlacklist(user string) {
-	_, ok := c.Credentials[user]
-	log.Printf("INFO:OK %+v %+v try add to blacklist", user, ok)
-	if ok {
-		c.Credentials[user].BlackList = true
-		log.Printf("INFO: User %+v added to blacklist", user)
-	}
 }
 
 // Push - adding query to collector with query params (with query) and rows
@@ -363,15 +333,19 @@ func (c *Collector) Push(paramsIn string, content string) {
 	pushCounter.Inc()
 }
 
-func (c *Collector) Role(user string) (role string) {
+func (c *Collector) Role(user string, pass string) (role string) {
 	if user == "admin" {
 		return user
 	}
 	credetial, ok := c.Credentials[user]
-	if ok && credetial.BlackList {
-		return "blacklist"
+	if ok {
+		if !credetial.BlackList {
+			return "normal"
+		} else {
+			return "blacklist"
+		}
 	}
-	return "normal"
+	return "unknown"
 }
 
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)

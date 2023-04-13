@@ -63,19 +63,47 @@ func (server *Server) CheckUserClickHouse(c echo.Context, user string, pass stri
 	return true
 }
 
-func (server *Server) CheckCredentialsUser(c echo.Context, user string, pass string) bool {
+func (server *Server) CheckUserInCH(user string, pass string) {
+	s := "SELECT timezone()"
+	qs := "user=" + user + "&password=" + pass
+	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
 	credential, exist := server.Collector.Credentials[user]
-	if exist && credential.CreditTime.Before(time.Now()) ||
-		server.CheckUserClickHouse(c, user, pass) {
-		if server.Debug {
-			log.Printf("DEBUG: CheckCredentialsUser user [%+v] already exist in Credential\n", user)
+	if status == 200 {
+		if exist {
+			credential.BlackList = false
+			if server.Debug {
+				log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - OK \n", user)
+			}
+			return
 		}
-		return true
-	} else {
+		server.Collector.addCredential(user, pass)
 		if server.Debug {
-			log.Printf("DEBUG: CheckCredentialsUser user [%+v] NOT in Credential\n", user)
+			log.Printf("DEBUG: CheckUserInCH [%+v] successfully added \n", user)
 		}
-		return false
+		return
+	}
+	credential.BlackList = true
+	if server.Debug {
+		log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - PERMISSION DENIED \n", user)
+	}
+	return
+}
+
+func (s *Server) BlackListChecker(period time.Duration) {
+	t := time.NewTicker(period * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			s.checkBlackList()
+		}
+	}
+}
+
+func (s *Server) checkBlackList() {
+	for user, _ := range s.Collector.Credentials {
+		s.CheckUserInCH(user, s.Collector.Credentials[user].Pass)
+		log.Printf("checkBlackList")
 	}
 }
 
@@ -125,7 +153,6 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 		if server.Debug {
 			log.Printf("DEBUG: UserWriteHandler set blackListCredential for user: [%+v]\n", user)
 		}
-		server.Collector.addToBlacklist(user)
 		return c.String(http.StatusOK, "")
 	}
 }
@@ -141,22 +168,17 @@ func (server *Server) writeHandler(c echo.Context) error {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
 	if ok {
-		role := server.Collector.Role(user)
+		role := server.Collector.Role(user, pass)
 		qs := c.QueryString()
 		if role == "admin" {
 			return server.AdminWriteHandler(c, s, qs, user, pass)
 		} else if role == "normal" {
-			if server.CheckCredentialsUser(c, user, pass) {
-				return server.UserWriteHandler(c, s, qs, user, pass)
-			} else {
-				return c.String(401, "There is no user with such name or password is incorrect")
-			}
-		} else {
-			return c.String(403, "User in blacklist")
+			return server.UserWriteHandler(c, s, qs, user, pass)
+		} else if role == "unknown" {
+			server.Collector.addCredential(user, pass)
 		}
-	} else {
-		return c.String(400, "Authentication failed because of bad request")
 	}
+	return c.String(400, "Authentication failed because of bad request")
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
@@ -242,20 +264,6 @@ func RunServer(cnf Config) {
 
 	collect := NewCollector(sender, cnf.FlushCount, cnf.FlushInterval, cnf.CleanInterval, cnf.RemoveQueryID)
 
-	// run blacklist file updating
-	go func() {
-		for {
-			ctxBlackList := context.Background()
-			ctxBlackList, Blacklistcancel := context.WithCancel(ctxBlackList)
-			defer Blacklistcancel()
-			go collect.BlackListChecker(60, cnf.BlackListPath)
-			select {
-			case <-ctxBlackList.Done():
-				log.Printf("INFO: stop using Blacklist")
-			}
-		}
-	}()
-
 	// send collected data on SIGTERM and exit
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
@@ -263,6 +271,19 @@ func RunServer(cnf Config) {
 	srv := InitServer(cnf.Listen, collect, cnf.Debug)
 	srv.echo.Group("/play*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets_)))
 
+	// run blacklist file updating
+	go func() {
+		for {
+			ctxBlackList := context.Background()
+			ctxBlackList, Blacklistcancel := context.WithCancel(ctxBlackList)
+			defer Blacklistcancel()
+			go srv.BlackListChecker(60)
+			select {
+			case <-ctxBlackList.Done():
+				log.Printf("INFO: stop using Blacklist")
+			}
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	go func() {
