@@ -43,10 +43,10 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 	return &Server{listen, collector, debug, echo.New()}
 }
 
-// CheckUserClickHouse - Check user pass with "SELECT timezone()" query;
+// CheckUserClickHouse - Check user pass with "SELECT 1" query;
 // return true and add user to Credentials if credentials accepted by CH
 func (server *Server) CHCheckCredentialsUser(user string, pass string) {
-	s := "SELECT timezone()"
+	s := "SELECT 1"
 	qs := "user=" + user + "&password=" + pass
 	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
 	credential, exist := server.Collector.Credentials[user]
@@ -140,10 +140,8 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 		}
 		return c.String(status, resp)
 	} else {
-		if server.Debug {
-			log.Printf("DEBUG: UserWriteHandler set blackListCredential for user: [%+v]\n", user)
-		}
-		return c.String(http.StatusOK, "")
+		log.Printf("DEBUG: User [%+v] without admin credentials try to SELECT\n", user)
+		return c.String(http.StatusForbidden, "")
 	}
 }
 
@@ -264,7 +262,7 @@ func RunServer(cnf Config) {
 	srv := InitServer(cnf.Listen, collect, cnf.Debug)
 	srv.echo.Group("/play*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets_)))
 
-	// run blacklist file updating
+	//credential updating
 	go func() {
 		for {
 			ctxCHCredentialsChecker := context.Background()
@@ -277,6 +275,7 @@ func RunServer(cnf Config) {
 			}
 		}
 	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	go func() {

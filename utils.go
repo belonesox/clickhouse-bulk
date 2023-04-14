@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"log"
 	"os"
@@ -30,6 +29,7 @@ type Config struct {
 	DumpCheckInterval int              `json:"dump_check_interval"`
 	DumpDir           string           `json:"dump_dir"`
 	Debug             bool             `json:"debug"`
+	Admins            []string         `json:"admins"`
 }
 
 // ReadJSON - read json file to struct
@@ -104,24 +104,4 @@ func ReadConfig(configFile string) (Config, error) {
 	}
 
 	return cnf, err
-}
-
-// Count not empty lines in txt file
-func ListLen(list string) (int, error) {
-	file, err := os.Open(list)
-	if err != nil {
-		log.Printf("INFO: problems with reading black-list [%+v]", err)
-		return 0, err
-	}
-	defer file.Close()
-	fileScanner := bufio.NewScanner(file)
-
-	blacklist_len := 0
-	for fileScanner.Scan() {
-		if len(fileScanner.Text()) == 0 {
-			continue
-		}
-		blacklist_len++
-	}
-	return blacklist_len, err
 }

@@ -8,6 +8,7 @@ import (
 
 var version = "unknown"
 var date = "unknown"
+var admins []string
 
 func main() {
 
@@ -24,6 +25,7 @@ func main() {
 	}
 
 	cnf, err := ReadConfig(*configFile)
+	admins = cnf.Admins
 	if err != nil {
 		log.Fatalf("ERROR: %+v\n", err)
 	}

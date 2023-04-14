@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/url"
 	"regexp"
 	"strings"
@@ -292,7 +291,6 @@ func (c *Collector) addTable(name string) *Table {
 func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass)
 	c.Credentials[user] = credential
-	log.Printf("DEBUG: addCredential [%+v] successfully added \n", user)
 	return credential
 }
 
@@ -339,8 +337,10 @@ func (c *Collector) Push(paramsIn string, content string) {
 // return "blacklist" if user Credential.Blacklist = 1;
 // return "unknown" if user not in Credentials map.
 func (c *Collector) Role(user string) (role string) {
-	if user == "admin" {
-		return user
+	for _, admin := range admins {
+		if user == admin {
+			return "admin"
+		}
 	}
 	credetial, ok := c.Credentials[user]
 	if ok {

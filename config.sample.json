@@ -5,8 +5,9 @@
   "clean_interval": 0,
   "remove_query_id": true,
   "dump_check_interval": 300,
-  "debug": true,
+  "debug": false,
   "dump_dir": "dumps",
+  "admins": ["admin", "department00001"],
   "clickhouse": {
     "down_timeout": 60,
     "connect_timeout": 10,
