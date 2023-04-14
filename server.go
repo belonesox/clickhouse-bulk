@@ -158,11 +158,11 @@ func (server *Server) writeHandler(c echo.Context) error {
 	if ok {
 		role := server.Collector.Role(user)
 		qs := c.QueryString()
-		if role == "admin" {
+		if role == Admin {
 			return server.AdminWriteHandler(c, s, qs, user, pass)
-		} else if role == "normal" {
+		} else if role == Normal {
 			return server.UserWriteHandler(c, s, qs, user, pass)
-		} else if role == "unknown" {
+		} else if role == Unknown {
 			server.Collector.addCredential(user, pass)
 		} else {
 			log.Printf("There is no [%+v] user in CH or password incorrect", user)

@@ -331,26 +331,33 @@ func (c *Collector) Push(paramsIn string, content string) {
 	pushCounter.Inc()
 }
 
+const (
+	Admin = iota
+	Normal
+	Blacklist
+	Unknown
+)
+
 // Check role for current user;
 // return "admin" if user in adminlist;
 // return "normal" if user Credential.Blacklist = 0;
 // return "blacklist" if user Credential.Blacklist = 1;
 // return "unknown" if user not in Credentials map.
-func (c *Collector) Role(user string) (role string) {
+func (c *Collector) Role(user string) int {
 	for _, admin := range admins {
 		if user == admin {
-			return "admin"
+			return Admin
 		}
 	}
 	credetial, ok := c.Credentials[user]
 	if ok {
 		if !credetial.BlackList {
-			return "normal"
+			return Normal
 		} else {
-			return "blacklist"
+			return Blacklist
 		}
 	}
-	return "unknown"
+	return Unknown
 }
 
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)
