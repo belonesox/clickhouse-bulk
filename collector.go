@@ -108,6 +108,7 @@ func (t *Table) Flush() {
 		Count:    len(t.Rows),
 		isInsert: true,
 	}
+	rowsInserted.Add(float64(req.Count))
 	t.Sender.Send(&req)
 	t.Rows = make([]string, 0, t.FlushCount)
 	t.count = 0

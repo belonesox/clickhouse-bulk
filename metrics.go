@@ -42,6 +42,12 @@ var departmentsBlocked = prometheus.NewGauge(
 		Help: "Amount of blocked users",
 	})
 
+var rowsInserted = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Name: "rows_inserted",
+		Help: "Rows inserted",
+	})
+
 // InitMetrics - init prometheus metrics
 func InitMetrics() {
 
@@ -52,4 +58,5 @@ func InitMetrics() {
 	prometheus.MustRegister(goodServers)
 	prometheus.MustRegister(badServers)
 	prometheus.MustRegister(departmentsBlocked)
+	prometheus.MustRegister(rowsInserted)
 }
