@@ -65,8 +65,10 @@ func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 		return
 	}
 	if exist {
-		credential.BlackList = true
-		departmentsBlocked.Inc()
+		if !credential.BlackList {
+			departmentsBlocked.Inc()
+			credential.BlackList = true
+		}
 	}
 	if server.Debug {
 		log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - PERMISSION DENIED \n", user)
