@@ -30,6 +30,7 @@ type Config struct {
 	DumpDir           string           `json:"dump_dir"`
 	Debug             bool             `json:"debug"`
 	Admins            []string         `json:"admins"`
+	CredInterval      int              `json:"credentials_checker_interval"`
 }
 
 // ReadJSON - read json file to struct

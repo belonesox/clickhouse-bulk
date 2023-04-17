@@ -77,7 +77,7 @@ func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 }
 
 func (s *Server) ChanelCHCredentials(period time.Duration) {
-	t := time.NewTicker(period * time.Second)
+	t := time.NewTicker(period * time.Minute)
 	defer t.Stop()
 	for {
 		select {
@@ -270,7 +270,7 @@ func RunServer(cnf Config) {
 			ctxCHCredentialsChecker := context.Background()
 			ctxCHCredentialsChecker, CHCredentialsCancel := context.WithCancel(ctxCHCredentialsChecker)
 			defer CHCredentialsCancel()
-			go srv.ChanelCHCredentials(60)
+			go srv.ChanelCHCredentials(time.Duration(cnf.CredInterval))
 			select {
 			case <-ctxCHCredentialsChecker.Done():
 				log.Printf("INFO: stop using Blacklist")

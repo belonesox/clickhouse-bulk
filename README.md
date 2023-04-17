@@ -64,6 +64,7 @@ INSERT INTO table3 (c1, c2, c3) VALUES ('v1', 'v2', 'v3')('v4', 'v5', 'v6')
   "debug": false, // log incoming requests
   "dump_dir": "dumps", // directory for dump unsended data (if clickhouse errors)
   "admins": ["admin"], // admins can do any querys
+  "credentials_checker_interval": 60, // interval to check if user exist in clickhouse (minutes)
   "clickhouse": {
     "down_timeout": 60, // wait if server in down (seconds)
     "connect_timeout": 10, // wait for server connect (seconds)
