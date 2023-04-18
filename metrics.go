@@ -48,6 +48,12 @@ var rowsInserted = prometheus.NewGauge(
 		Help: "Rows inserted",
 	})
 
+var activeDeparts = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Name: "active_departs",
+		Help: "If users from current departmet try to send query and this deparment !blocked it is active",
+	})
+
 // InitMetrics - init prometheus metrics
 func InitMetrics() {
 
@@ -59,4 +65,5 @@ func InitMetrics() {
 	prometheus.MustRegister(badServers)
 	prometheus.MustRegister(departmentsBlocked)
 	prometheus.MustRegister(rowsInserted)
+	prometheus.MustRegister(activeDeparts)
 }

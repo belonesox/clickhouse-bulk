@@ -53,6 +53,7 @@ func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 	if status == 200 {
 		if exist {
 			credential.BlackList = false
+			credential.Active = true
 			if server.Debug {
 				log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - OK \n", user)
 			}
@@ -68,6 +69,7 @@ func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 		if !credential.BlackList {
 			departmentsBlocked.Inc()
 			credential.BlackList = true
+			credential.Active = false
 		}
 	}
 	if server.Debug {
@@ -91,10 +93,14 @@ func (s *Server) CHCheckCredentialsAll() {
 	if s.Debug {
 		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
 	}
+	active_departs := 0
 	for user, _ := range s.Collector.Credentials {
 		s.CHCheckCredentialsUser(user, s.Collector.Credentials[user].Pass)
-
+		if s.Collector.Credentials[user].Active {
+			active_departs++
+		}
 	}
+	activeDeparts.Set(float64(active_departs))
 }
 
 // AdminWriteHandler - implemtn querys from admin users;

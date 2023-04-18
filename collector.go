@@ -38,6 +38,7 @@ type Credential struct {
 	Credit     bool
 	CreditTime time.Time
 	BlackList  bool
+	Active     bool
 }
 
 // Collector - query collector
@@ -71,6 +72,7 @@ func NewCredential(user string, pass string) (credential *Credential) {
 	credential.Credit = true
 	credential.CreditTime = time.Now().Add(24 * time.Hour)
 	credential.BlackList = false
+	credential.Active = false
 	return credential
 }
 
