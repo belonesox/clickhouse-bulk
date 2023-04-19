@@ -58,14 +58,14 @@ var flushIntervals = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
 		Name:    "flush_intervals",
 		Help:    "Accumulats info about how many seconds left since each insert to CH",
-		Buckets: prometheus.LinearBuckets(1, 0.5, 10), //need to call observe method
+		Buckets: prometheus.LinearBuckets(1, 0.5, 10),
 	})
 
 var flushCounts = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
 		Name:    "flush_counts",
 		Help:    "Accumulats info about how many rows were send in each insert to CH",
-		Buckets: prometheus.LinearBuckets(10, 1, 10), //need to call observe method
+		Buckets: prometheus.LinearBuckets(10, 1, 10),
 	})
 
 // InitMetrics - init prometheus metrics

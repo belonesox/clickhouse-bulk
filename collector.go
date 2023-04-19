@@ -115,6 +115,7 @@ func (t *Table) Flush() {
 		isInsert: true,
 	}
 	flushIntervals.Observe(float64(time.Now().Sub(t.lastFlush)) / (1000000000))
+	flushCounts.Observe(float64(len(t.Rows)))
 	rowsInserted.Add(float64(req.Count))
 	t.Sender.Send(&req)
 	t.Rows = make([]string, 0, t.FlushCount)
