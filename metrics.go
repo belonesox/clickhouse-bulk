@@ -54,10 +54,19 @@ var activeDeparts = prometheus.NewGauge(
 		Help: "If users from current departmet try to send query and this deparment !blocked it is active",
 	})
 
-// var histogram = promauto.NewHistogram(prometheus.HistogramOpts{
-// 	Name:    "histogram_metric",
-// 	Buckets: []float64{1.0, 2.0, 3.0, 4.0, 5.0},
-// })
+var flushIntervals = prometheus.NewHistogram(
+	prometheus.HistogramOpts{
+		Name:    "flush_intervals",
+		Help:    "Accumulats info about how many seconds left since each insert to CH",
+		Buckets: prometheus.LinearBuckets(1, 0.5, 10), //need to call observe method
+	})
+
+var flushCounts = prometheus.NewHistogram(
+	prometheus.HistogramOpts{
+		Name:    "flush_counts",
+		Help:    "Accumulats info about how many rows were send in each insert to CH",
+		Buckets: prometheus.LinearBuckets(10, 1, 10), //need to call observe method
+	})
 
 // InitMetrics - init prometheus metrics
 func InitMetrics() {
@@ -71,5 +80,7 @@ func InitMetrics() {
 	prometheus.MustRegister(departmentsBlocked)
 	prometheus.MustRegister(rowsInserted)
 	prometheus.MustRegister(activeDeparts)
-	// prometheus.MustRegister(histogram)
+	prometheus.MustRegister(flushIntervals)
+	prometheus.MustRegister(flushCounts)
+
 }

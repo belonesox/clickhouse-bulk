@@ -24,6 +24,7 @@ type Table struct {
 	Rows          []string
 	count         int
 	FlushCount    int
+	lastFlush     time.Time
 	FlushInterval int
 	mu            sync.Mutex
 	Sender        Sender
@@ -62,6 +63,7 @@ func NewTable(name string, sender Sender, count int, interval int) (t *Table) {
 	t.Sender = sender
 	t.FlushCount = count
 	t.FlushInterval = interval
+	t.lastFlush = time.Now()
 	return t
 }
 
@@ -112,10 +114,12 @@ func (t *Table) Flush() {
 		Count:    len(t.Rows),
 		isInsert: true,
 	}
+	flushIntervals.Observe(float64(time.Now().Sub(t.lastFlush)) / (1000000000))
 	rowsInserted.Add(float64(req.Count))
 	t.Sender.Send(&req)
 	t.Rows = make([]string, 0, t.FlushCount)
 	t.count = 0
+	t.lastFlush = time.Now()
 }
 
 // CheckFlush - check if flush is need and sends data to clickhouse
