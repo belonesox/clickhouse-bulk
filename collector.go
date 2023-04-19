@@ -33,12 +33,13 @@ type Table struct {
 }
 
 type Credential struct {
-	User       string
-	Pass       string
-	Credit     bool
-	CreditTime time.Time
-	BlackList  bool
-	Active     bool
+	User           string
+	Pass           string
+	Credit         bool
+	CreditTime     time.Time
+	BlackList      bool
+	Active         bool
+	ActiveLastTime time.Time
 }
 
 // Collector - query collector
@@ -73,6 +74,7 @@ func NewCredential(user string, pass string) (credential *Credential) {
 	credential.CreditTime = time.Now().Add(24 * time.Hour)
 	credential.BlackList = false
 	credential.Active = false
+	credential.ActiveLastTime = time.Now().Add(10 * time.Minute)
 	return credential
 }
 

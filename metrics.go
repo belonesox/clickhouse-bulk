@@ -54,6 +54,11 @@ var activeDeparts = prometheus.NewGauge(
 		Help: "If users from current departmet try to send query and this deparment !blocked it is active",
 	})
 
+// var histogram = promauto.NewHistogram(prometheus.HistogramOpts{
+// 	Name:    "histogram_metric",
+// 	Buckets: []float64{1.0, 2.0, 3.0, 4.0, 5.0},
+// })
+
 // InitMetrics - init prometheus metrics
 func InitMetrics() {
 
@@ -66,4 +71,5 @@ func InitMetrics() {
 	prometheus.MustRegister(departmentsBlocked)
 	prometheus.MustRegister(rowsInserted)
 	prometheus.MustRegister(activeDeparts)
+	// prometheus.MustRegister(histogram)
 }

@@ -95,12 +95,14 @@ func (s *Server) CHCheckCredentialsAll() {
 	}
 	active_departs := 0
 	for user, _ := range s.Collector.Credentials {
-		s.CHCheckCredentialsUser(user, s.Collector.Credentials[user].Pass)
-		if s.Collector.Credentials[user].Active {
+		credential := s.Collector.Credentials[user]
+		s.CHCheckCredentialsUser(user, credential.Pass)
+		if credential.Active && credential.ActiveLastTime.After(time.Now()) {
 			active_departs++
 		}
 	}
 	activeDeparts.Set(float64(active_departs))
+	log.Printf("activeDeparts set: %+v", active_departs)
 }
 
 // AdminWriteHandler - implemtn querys from admin users;
@@ -135,6 +137,7 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
+		server.Collector.Credentials[user].ActiveLastTime = time.Now().Add(10 * time.Minute)
 		if server.Debug {
 			log.Printf("DEBUG: UserWriteHandler pushed content:[%+v] with params: [%+v]\n", content, params)
 		}
