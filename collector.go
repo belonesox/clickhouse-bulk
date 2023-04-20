@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"net/url"
 	"regexp"
 	"strings"
@@ -114,7 +115,7 @@ func (t *Table) Flush() {
 		Count:    len(t.Rows),
 		isInsert: true,
 	}
-	flushIntervals.Observe(float64(time.Now().Sub(t.lastFlush)) / (1000000000))
+	flushIntervals.Observe(float64(time.Now().Sub(t.lastFlush)) / math.Pow(10, 9))
 	flushCounts.Observe(float64(len(t.Rows)))
 	rowsInserted.Add(float64(req.Count))
 	t.Sender.Send(&req)

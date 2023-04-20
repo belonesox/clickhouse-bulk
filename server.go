@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -250,6 +252,29 @@ func SafeQuit(collect *Collector, sender Sender) {
 	collect.WaitFlush()
 }
 
+func cmdComand() {
+	out, err := exec.Command("ss -p | grep \"8123\" | wc -l").Output()
+	if err != nil {
+		tcpConnectionsBulk.Set(-1)
+		log.Printf("TCP connections to Bulk %+v: ", -1)
+		return
+	}
+	tcp := float64(binary.BigEndian.Uint64(out))
+	tcpConnectionsBulk.Set(tcp)
+	log.Printf("TCP connections to Bulk %+v: ", tcp)
+}
+
+func TCPEstab(period time.Duration) {
+	t := time.NewTicker(period * time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			cmdComand()
+		}
+	}
+}
+
 // RunServer - run all
 func RunServer(cnf Config) {
 	InitMetrics()
@@ -286,6 +311,21 @@ func RunServer(cnf Config) {
 			}
 		}
 	}()
+
+	if runtime.GOOS != "windows" {
+		go func() {
+			for {
+				ctxTCP := context.Background()
+				ctxTCP, ctxTCPcancel := context.WithCancel(ctxTCP)
+				defer ctxTCPcancel()
+				go TCPEstab(1)
+				select {
+				case <-ctxTCP.Done():
+					log.Printf("INFO: stop counting TCP connections")
+				}
+			}
+		}()
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

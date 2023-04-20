@@ -38,34 +38,40 @@ var queuedDumps = prometheus.NewGauge(
 
 var departmentsBlocked = prometheus.NewGauge(
 	prometheus.GaugeOpts{
-		Name: "departments_blocked_counter",
+		Name: "ch_departments_blocked_counter",
 		Help: "Amount of blocked users",
 	})
 
 var rowsInserted = prometheus.NewGauge(
 	prometheus.GaugeOpts{
-		Name: "rows_inserted",
+		Name: "ch_rows_inserted",
 		Help: "Rows inserted",
 	})
 
 var activeDeparts = prometheus.NewGauge(
 	prometheus.GaugeOpts{
-		Name: "active_departs",
+		Name: "ch_active_departs",
 		Help: "If users from current departmet try to send query and this deparment !blocked it is active",
 	})
 
 var flushIntervals = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
-		Name:    "flush_intervals",
+		Name:    "ch_flush_intervals",
 		Help:    "Accumulats info about how many seconds left since each insert to CH",
 		Buckets: prometheus.LinearBuckets(1, 0.5, 10),
 	})
 
 var flushCounts = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
-		Name:    "flush_counts",
+		Name:    "ch_flush_counts",
 		Help:    "Accumulats info about how many rows were send in each insert to CH",
 		Buckets: prometheus.LinearBuckets(10, 1, 10),
+	})
+
+var tcpConnectionsBulk = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Name: "ch_tcp_connections_bulk",
+		Help: "Count TCP connections to proxy",
 	})
 
 // InitMetrics - init prometheus metrics
@@ -82,5 +88,5 @@ func InitMetrics() {
 	prometheus.MustRegister(activeDeparts)
 	prometheus.MustRegister(flushIntervals)
 	prometheus.MustRegister(flushCounts)
-
+	prometheus.MustRegister(tcpConnectionsBulk)
 }
