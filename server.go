@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -253,15 +252,18 @@ func SafeQuit(collect *Collector, sender Sender) {
 }
 
 func cmdComand() {
-	out, err := exec.Command("ss -p | grep \"8123\" | wc -l").Output()
-	if err != nil {
-		tcpConnectionsBulk.Set(-1)
-		log.Printf("TCP connections to Bulk %+v: ", -1)
-		return
+	if runtime.GOOS == "windows" {
+		log.Println("Can't Execute this on a windows machine")
+	} else {
+		_, err := exec.Command("bash", "-c", "ss -p | grep \"8123\" | wc -l").Output() // out _
+		if err != nil {
+			tcpConnectionsBulk.Set(0)
+			return
+		}
+		tcpConnectionsBulk.Set(0)
+		// tcpConnectionsBulk.Set(string(out))
+		//log.Printf("TCP connections to Bulk %+v: ", string(out))
 	}
-	tcp := float64(binary.BigEndian.Uint64(out))
-	tcpConnectionsBulk.Set(tcp)
-	log.Printf("TCP connections to Bulk %+v: ", tcp)
 }
 
 func TCPEstab(period time.Duration) {
