@@ -1,19 +1,13 @@
 package main
 
 import (
-	"binary"
 	"fmt"
 	"log"
-	"math"
 	"os/exec"
+	"regexp"
 	"runtime"
+	"strconv"
 )
-
-func Float64frombytes(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint64(bytes)
-	float := math.Float64frombits(bits)
-	return float
-}
 
 // | grep \"8123\" | wc -l
 func main() {
@@ -25,7 +19,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		fmt.Println(string(out1))
+		str := regexp.MustCompile(`[^a-zA-Z0-9 ]+`).ReplaceAllString(string(out1), "")
+		fmt.Println(strconv.ParseFloat(string(str), 64))
 	}
 }

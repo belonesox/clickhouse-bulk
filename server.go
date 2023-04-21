@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -255,14 +257,19 @@ func cmdComand() {
 	if runtime.GOOS == "windows" {
 		log.Println("Can't Execute this on a windows machine")
 	} else {
-		_, err := exec.Command("bash", "-c", "ss -p | grep \"8123\" | wc -l").Output() // out _
+		out, err := exec.Command("bash", "-c", "ss -p | grep \"8123\" | wc -l").Output() // out _
 		if err != nil {
 			tcpConnectionsBulk.Set(0)
 			return
 		}
+		str := regexp.MustCompile(`[^a-zA-Z0-9 ]+`).ReplaceAllString(string(out), "")
+		tcp, err := strconv.ParseFloat(string(str), 64)
+		if err != nil {
+			tcpConnectionsBulk.Set(tcp)
+			return
+		}
 		tcpConnectionsBulk.Set(0)
-		// tcpConnectionsBulk.Set(string(out))
-		//log.Printf("TCP connections to Bulk %+v: ", string(out))
+		log.Printf("TCP connections to Bulk %+v: ", tcp)
 	}
 }
 
