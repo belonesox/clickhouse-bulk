@@ -9,6 +9,7 @@ import (
 var version = "unknown"
 var date = "unknown"
 var admins []string
+var dmicp_password string
 
 func main() {
 
@@ -25,9 +26,10 @@ func main() {
 	}
 
 	cnf, err := ReadConfig(*configFile)
-	admins = cnf.Admins
 	if err != nil {
 		log.Fatalf("ERROR: %+v\n", err)
 	}
+	admins = cnf.Admins
+	dmicp_password = cnf.DmicpPass
 	RunServer(cnf)
 }

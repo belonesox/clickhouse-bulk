@@ -97,7 +97,7 @@ func (s *Server) CHCheckCredentialsAll() {
 		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
 	}
 	active_departs := 0
-	for user, _ := range s.Collector.Credentials {
+	for user := range s.Collector.Credentials {
 		credential := s.Collector.Credentials[user]
 		s.CHCheckCredentialsUser(user, credential.Pass)
 		if credential.Active && credential.ActiveLastTime.After(time.Now()) {
@@ -105,7 +105,6 @@ func (s *Server) CHCheckCredentialsAll() {
 		}
 	}
 	activeDeparts.Set(float64(active_departs))
-	log.Printf("activeDeparts set: %+v", active_departs)
 }
 
 // AdminWriteHandler - implemtn querys from admin users;
@@ -126,9 +125,9 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 // login and password changed with dmicp
 func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
 	if qs == "" {
-		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp"
+		qs = "user=" + "departmentdmicp" + "&password=" + dmicp_password
 	} else {
-		qs = "user=" + "departmentdmicp" + "&password=" + "passdmicp" + "&" + qs
+		qs = "user=" + "departmentdmicp" + "&password=" + dmicp_password + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
 	if insert && !strings.Contains(s, "SELECT") {

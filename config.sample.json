@@ -9,6 +9,7 @@
   "dump_dir": "dumps",
   "admins": ["admin"],
   "credentials_checker_interval": 1,
+  "dmicp_pass": "passdmicp",
   "clickhouse": {
     "down_timeout": 60,
     "connect_timeout": 10,

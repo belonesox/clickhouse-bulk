@@ -31,6 +31,7 @@ type Config struct {
 	Debug             bool             `json:"debug"`
 	Admins            []string         `json:"admins"`
 	CredInterval      int              `json:"credentials_checker_interval"`
+	DmicpPass         string           `json:"dmicp_pass"`
 }
 
 // ReadJSON - read json file to struct
