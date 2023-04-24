@@ -65,7 +65,7 @@ var flushCounts = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
 		Name:    "ch_flush_counts",
 		Help:    "Accumulats info about how many rows were send in each insert to CH",
-		Buckets: prometheus.LinearBuckets(10, 1, 10),
+		Buckets: prometheus.LinearBuckets(10000, 10000, 10),
 	})
 
 var tcpConnectionsBulk = prometheus.NewGauge(
