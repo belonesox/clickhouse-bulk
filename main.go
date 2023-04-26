@@ -9,6 +9,7 @@ import (
 var version = "unknown"
 var date = "unknown"
 var admins []string
+var dmicp_login string
 var dmicp_password string
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 		log.Fatalf("ERROR: %+v\n", err)
 	}
 	admins = cnf.Admins
+	dmicp_login = cnf.DmicpLogin
 	dmicp_password = cnf.DmicpPass
 	RunServer(cnf)
 }

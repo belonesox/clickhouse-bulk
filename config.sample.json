@@ -10,6 +10,7 @@
   "admins": ["admin"],
   "credentials_checker_interval": 1,
   "dmicp_pass": "passdmicp",
+  "dmicp_login": "departmentdmicp",
   "clickhouse": {
     "down_timeout": 60,
     "connect_timeout": 10,

@@ -350,6 +350,7 @@ const (
 	Normal
 	Blacklist
 	Unknown
+	Dmicp
 )
 
 // Check role for current user;
@@ -358,6 +359,9 @@ const (
 // return "blacklist" if user Credential.Blacklist = 1;
 // return "unknown" if user not in Credentials map.
 func (c *Collector) Role(user string) int {
+	if user == dmicp_login {
+		return Dmicp
+	}
 	for _, admin := range admins {
 		if user == admin {
 			return Admin

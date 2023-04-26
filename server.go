@@ -7,10 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"os/signal"
-	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -125,9 +122,9 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 // login and password changed with dmicp
 func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
 	if qs == "" {
-		qs = "user=" + "departmentdmicp" + "&password=" + dmicp_password
+		qs = "user=" + dmicp_login + "&password=" + dmicp_password
 	} else {
-		qs = "user=" + "departmentdmicp" + "&password=" + dmicp_password + "&" + qs
+		qs = "user=" + dmicp_login + "&password=" + dmicp_password + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
 	if insert && !strings.Contains(s, "SELECT") {
@@ -171,7 +168,10 @@ func (server *Server) writeHandler(c echo.Context) error {
 	if ok {
 		role := server.Collector.Role(user)
 		qs := c.QueryString()
-		if role == Admin {
+		if role == Dmicp {
+			log.Printf("Direct connection with dmicp_login forbidden")
+			return c.String(http.StatusForbidden, "")
+		} else if role == Admin {
 			return server.AdminWriteHandler(c, s, qs, user, pass)
 		} else if role == Normal {
 			return server.UserWriteHandler(c, s, qs, user, pass)
@@ -252,37 +252,6 @@ func SafeQuit(collect *Collector, sender Sender) {
 	collect.WaitFlush()
 }
 
-func cmdComand() {
-	if runtime.GOOS == "windows" {
-		log.Println("Can't Execute this on a windows machine")
-	} else {
-		out, err := exec.Command("bash", "-c", "ss -p | grep \"8123\" | wc -l").Output() // out _
-		if err != nil {
-			tcpConnectionsBulk.Set(0)
-			return
-		}
-		str := regexp.MustCompile(`[^a-zA-Z0-9 ]+`).ReplaceAllString(string(out), "")
-		tcp, err := strconv.ParseFloat(string(str), 64)
-		if err == nil {
-			tcpConnectionsBulk.Set(tcp)
-			log.Printf("TCP connections to Bulk %+v: ", tcp)
-			return
-		}
-		tcpConnectionsBulk.Set(0)
-	}
-}
-
-func TCPEstab(period time.Duration) {
-	t := time.NewTicker(period * time.Minute)
-	defer t.Stop()
-	for {
-		select {
-		case <-t.C:
-			cmdComand()
-		}
-	}
-}
-
 // RunServer - run all
 func RunServer(cnf Config) {
 	InitMetrics(cnf)
@@ -319,21 +288,6 @@ func RunServer(cnf Config) {
 			}
 		}
 	}()
-
-	if runtime.GOOS != "windows" {
-		go func() {
-			for {
-				ctxTCP := context.Background()
-				ctxTCP, ctxTCPcancel := context.WithCancel(ctxTCP)
-				defer ctxTCPcancel()
-				go TCPEstab(1)
-				select {
-				case <-ctxTCP.Done():
-					log.Printf("INFO: stop counting TCP connections")
-				}
-			}
-		}()
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

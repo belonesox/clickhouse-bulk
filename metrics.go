@@ -58,12 +58,6 @@ var flushIntervals prometheus.Histogram
 
 var flushCounts prometheus.Histogram
 
-var tcpConnectionsBulk = prometheus.NewGauge(
-	prometheus.GaugeOpts{
-		Name: "ch_tcp_connections_bulk",
-		Help: "Count TCP connections to proxy",
-	})
-
 var userButch = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
 		Name:    "ch_user_butch",
@@ -110,5 +104,4 @@ func InitMetrics(cnf Config) {
 			Buckets: prometheus.LinearBuckets(start, width, 5),
 		})
 	prometheus.MustRegister(flushCounts)
-	prometheus.MustRegister(tcpConnectionsBulk)
 }
