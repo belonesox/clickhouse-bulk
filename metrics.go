@@ -93,18 +93,16 @@ func InitMetrics(cnf Config) {
 	prometheus.MustRegister(activeDeparts)
 	prometheus.MustRegister(userButch)
 
-	width := Width(cnf.FlushInterval) / 1000
-	start := Start(width)
 	flushIntervals = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "ch_flush_intervals",
 			Help:    "Accumulats info about how many seconds left since each insert to CH",
-			Buckets: prometheus.LinearBuckets(start, width, 5),
+			Buckets: prometheus.ExponentialBucketsRange(1, (float64(cnf.FlushInterval)/1000)*1.2, 5),
 		})
 	prometheus.MustRegister(flushIntervals)
 
-	width = Width(cnf.FlushCount)
-	start = Start(width)
+	width := Width(cnf.FlushCount)
+	start := Start(width)
 	flushCounts = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "ch_flush_counts",
