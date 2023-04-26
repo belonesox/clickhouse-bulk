@@ -74,8 +74,14 @@ var tcpConnectionsBulk = prometheus.NewGauge(
 		Help: "Count TCP connections to proxy",
 	})
 
+func Width(flush_count int) (width float64) {
+	return float64(flush_count) / 5
+}
+
 // InitMetrics - init prometheus metrics
-func InitMetrics() {
+func InitMetrics(cnf Config) {
+	width := Width(cnf.FlushCount)
+	start := width * 1.05
 
 	prometheus.MustRegister(pushCounter)
 	prometheus.MustRegister(sentCounter)
@@ -87,6 +93,12 @@ func InitMetrics() {
 	prometheus.MustRegister(rowsInserted)
 	prometheus.MustRegister(activeDeparts)
 	prometheus.MustRegister(flushIntervals)
-	prometheus.MustRegister(flushCounts)
+	prometheus.MustRegister(
+		prometheus.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "ch_flush_counts",
+				Help:    "Accumulats info about how many rows were send in each insert to CH",
+				Buckets: prometheus.LinearBuckets(start, width, 5),
+			}))
 	prometheus.MustRegister(tcpConnectionsBulk)
 }

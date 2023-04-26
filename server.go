@@ -285,7 +285,7 @@ func TCPEstab(period time.Duration) {
 
 // RunServer - run all
 func RunServer(cnf Config) {
-	InitMetrics()
+	InitMetrics(cnf)
 	dumper := NewDumper(cnf.DumpDir)
 	sender := NewClickhouse(cnf.Clickhouse.DownTimeout, cnf.Clickhouse.ConnectTimeout, cnf.Clickhouse.tlsServerName, cnf.Clickhouse.tlsSkipVerify)
 	sender.Dumper = dumper
