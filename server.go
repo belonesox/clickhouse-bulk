@@ -263,12 +263,12 @@ func cmdComand() {
 		}
 		str := regexp.MustCompile(`[^a-zA-Z0-9 ]+`).ReplaceAllString(string(out), "")
 		tcp, err := strconv.ParseFloat(string(str), 64)
-		if err != nil {
+		if err == nil {
 			tcpConnectionsBulk.Set(tcp)
+			log.Printf("TCP connections to Bulk %+v: ", tcp)
 			return
 		}
 		tcpConnectionsBulk.Set(0)
-		log.Printf("TCP connections to Bulk %+v: ", tcp)
 	}
 }
 
