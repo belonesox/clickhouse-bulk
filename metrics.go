@@ -78,10 +78,12 @@ func Width(flush_count int) (width float64) {
 	return float64(flush_count) / 5
 }
 
+func Start(width float64) (start float64) {
+	return width * 1.05
+}
+
 // InitMetrics - init prometheus metrics
 func InitMetrics(cnf Config) {
-	width := Width(cnf.FlushCount)
-	start := width * 1.05
 
 	prometheus.MustRegister(pushCounter)
 	prometheus.MustRegister(sentCounter)
@@ -92,7 +94,19 @@ func InitMetrics(cnf Config) {
 	prometheus.MustRegister(departmentsBlocked)
 	prometheus.MustRegister(rowsInserted)
 	prometheus.MustRegister(activeDeparts)
-	prometheus.MustRegister(flushIntervals)
+
+	width := Width(cnf.FlushInterval) / 1000
+	start := Start(width)
+	prometheus.MustRegister(
+		prometheus.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "ch_flush_intervals",
+				Help:    "Accumulats info about how many seconds left since each insert to CH",
+				Buckets: prometheus.LinearBuckets(start, width, 5),
+			}))
+
+	width = Width(cnf.FlushCount)
+	start = Start(width)
 	prometheus.MustRegister(
 		prometheus.NewHistogram(
 			prometheus.HistogramOpts{
