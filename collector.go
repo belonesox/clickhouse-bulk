@@ -170,11 +170,14 @@ func (t *Table) Add(text string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.count++
+	r_prev := len(t.Rows)
 	if t.Format == "TabSeparated" {
 		t.Rows = append(t.Rows, strings.Split(text, "\n")...)
 	} else {
 		t.Rows = append(t.Rows, text)
 	}
+	r_post := len(t.Rows)
+	userButch.Observe(float64(r_post - r_prev))
 	if len(t.Rows) >= t.FlushCount {
 		t.Flush()
 	}

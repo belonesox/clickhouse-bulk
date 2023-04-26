@@ -54,24 +54,21 @@ var activeDeparts = prometheus.NewGauge(
 		Help: "If users from current departmet try to send query and this deparment !blocked it is active",
 	})
 
-var flushIntervals = prometheus.NewHistogram(
-	prometheus.HistogramOpts{
-		Name:    "ch_flush_intervals",
-		Help:    "Accumulats info about how many seconds left since each insert to CH",
-		Buckets: prometheus.LinearBuckets(1, 0.5, 10),
-	})
+var flushIntervals prometheus.Histogram
 
-var flushCounts = prometheus.NewHistogram(
-	prometheus.HistogramOpts{
-		Name:    "ch_flush_counts",
-		Help:    "Accumulats info about how many rows were send in each insert to CH",
-		Buckets: prometheus.LinearBuckets(10000, 10000, 10),
-	})
+var flushCounts prometheus.Histogram
 
 var tcpConnectionsBulk = prometheus.NewGauge(
 	prometheus.GaugeOpts{
 		Name: "ch_tcp_connections_bulk",
 		Help: "Count TCP connections to proxy",
+	})
+
+var userButch = prometheus.NewHistogram(
+	prometheus.HistogramOpts{
+		Name:    "ch_user_butch",
+		Help:    "Accumulats info about how many rows were send in each insert from user",
+		Buckets: prometheus.ExponentialBucketsRange(6, 100, 2),
 	})
 
 func Width(flush_count int) (width float64) {
@@ -94,25 +91,26 @@ func InitMetrics(cnf Config) {
 	prometheus.MustRegister(departmentsBlocked)
 	prometheus.MustRegister(rowsInserted)
 	prometheus.MustRegister(activeDeparts)
+	prometheus.MustRegister(userButch)
 
 	width := Width(cnf.FlushInterval) / 1000
 	start := Start(width)
-	prometheus.MustRegister(
-		prometheus.NewHistogram(
-			prometheus.HistogramOpts{
-				Name:    "ch_flush_intervals",
-				Help:    "Accumulats info about how many seconds left since each insert to CH",
-				Buckets: prometheus.LinearBuckets(start, width, 5),
-			}))
+	flushIntervals = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "ch_flush_intervals",
+			Help:    "Accumulats info about how many seconds left since each insert to CH",
+			Buckets: prometheus.LinearBuckets(start, width, 5),
+		})
+	prometheus.MustRegister(flushIntervals)
 
 	width = Width(cnf.FlushCount)
 	start = Start(width)
-	prometheus.MustRegister(
-		prometheus.NewHistogram(
-			prometheus.HistogramOpts{
-				Name:    "ch_flush_counts",
-				Help:    "Accumulats info about how many rows were send in each insert to CH",
-				Buckets: prometheus.LinearBuckets(start, width, 5),
-			}))
+	flushCounts = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "ch_flush_counts",
+			Help:    "Accumulats info about how many rows were send in each insert to CH",
+			Buckets: prometheus.LinearBuckets(start, width, 5),
+		})
+	prometheus.MustRegister(flushCounts)
 	prometheus.MustRegister(tcpConnectionsBulk)
 }
