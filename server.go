@@ -50,7 +50,7 @@ func (server *Server) CHCheckCredentialsUser(user string, pass string) {
 	qs := "user=" + user + "&password=" + pass
 	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
 	credential, exist := server.Collector.Credentials[user]
-	if status == 200 {
+	if status == http.StatusOK {
 		if exist {
 			credential.BlackList = false
 			credential.Active = true
@@ -168,21 +168,22 @@ func (server *Server) writeHandler(c echo.Context) error {
 	if ok {
 		role := server.Collector.Role(user)
 		qs := c.QueryString()
-		if role == Dmicp {
+		switch role {
+		case Dmicp:
 			log.Printf("Direct connection with dmicp_login forbidden")
 			return c.String(http.StatusForbidden, "")
-		} else if role == Admin {
+		case Admin:
 			return server.AdminWriteHandler(c, s, qs, user, pass)
-		} else if role == Normal {
+		case Normal:
 			return server.UserWriteHandler(c, s, qs, user, pass)
-		} else if role == Unknown {
+		case Unknown:
 			server.Collector.addCredential(user, pass)
-		} else {
+		default:
 			log.Printf("There is no [%+v] user in CH or password incorrect", user)
 			return c.String(http.StatusForbidden, "")
 		}
 	}
-	return c.String(400, "Authentication failed because of bad request")
+	return c.String(http.StatusBadRequest, "Authentication failed because of bad request")
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
