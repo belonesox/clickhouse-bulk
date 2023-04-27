@@ -93,9 +93,42 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 	return c.String(status, resp)
 }
 
-// UserWriteHandler - implemtn querys from ordinary users;
-// login and password changed with dmicp
+// Checking user with CH, returns ImplementUserQuery if OK or 401 error if not
+func (server *Server) Checking(user string, pass string, c echo.Context, s string, qs string) error {
+	if server.checkInCH(user, pass) {
+		return server.ImplementUserQuery(c, s, qs, user, pass)
+	} else {
+		return c.String(http.StatusUnauthorized, "")
+	}
+}
+
+// UserWriteHandler - implement querys from users;
 func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
+	collector := server.Collector
+	if collector.CredentialExist(user) {
+		if collector.PasswordMatchCredential(user, pass) {
+			return server.ImplementUserQuery(c, s, qs, user, pass)
+		} else {
+			return c.String(http.StatusUnauthorized, "")
+		}
+	} else {
+		credit := Credit{user, pass}
+		if collector.BlackListExist(credit) {
+			if collector.BlackListTimeEnded(credit) {
+				return server.Checking(user, pass, c, s, qs)
+			} else {
+				collector.addBlacklist(user, pass, collector.CredentialInt)
+				return c.String(http.StatusForbidden, "")
+			}
+		} else {
+			return server.Checking(user, pass, c, s, qs)
+		}
+	}
+}
+
+// ImplementUserQuery - implemtn querys from ordinary users;
+// login and password changed with dmicp
+func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, user string, pass string) error {
 	dmicp := server.Collector.Dmicp
 	dmicpUser := dmicp.User
 	dmicpPass := dmicp.Pass
@@ -132,11 +165,14 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 	}
 }
 
-func (s *Server) checkInCH(user string, pass string) {
+// checkInCH - if user approved by CH add credentials, otherwise add user to BL
+func (s *Server) checkInCH(user string, pass string) bool {
 	if s.CHCheckCredentialsUser(user, pass) {
 		s.Collector.addCredential(user, pass)
+		return true
 	} else {
 		s.Collector.addBlacklist(user, pass, s.Collector.CredentialInt)
+		return false
 	}
 }
 
@@ -161,24 +197,7 @@ func (server *Server) writeHandler(c echo.Context) error {
 		case Admin:
 			return server.AdminWriteHandler(c, s, qs, user, pass)
 		case User:
-			if collector.CredentialExist(user) {
-				if collector.PasswordMatchCredential(user, pass) {
-					return server.UserWriteHandler(c, s, qs, user, pass)
-				} else {
-					return c.String(http.StatusUnauthorized, "")
-				}
-			} else {
-				credit := Credit{user, pass}
-				if collector.BlackListExist(credit) {
-					if collector.BlackListTimeEnded(credit) {
-						server.checkInCH(user, pass)
-					} else {
-						collector.addBlacklist(user, pass, collector.CredentialInt)
-					}
-				} else {
-					server.checkInCH(user, pass)
-				}
-			}
+			return server.UserWriteHandler(c, s, qs, user, pass)
 		}
 	}
 	return c.String(http.StatusBadRequest, "Authentication failed because of bad request")
