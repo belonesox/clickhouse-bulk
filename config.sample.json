@@ -8,7 +8,7 @@
   "debug": false,
   "dump_dir": "dumps",
   "admins": ["admin"],
-  "credentials_checker_interval": 1,
+  "credentials_checker_interval": 10,
   "dmicp_pass": "passdmicp",
   "dmicp_login": "departmentdmicp",
   "clickhouse": {

@@ -35,18 +35,23 @@ type Table struct {
 }
 
 type Credential struct {
-	User           string
-	Pass           string
-	Credit         bool
-	CreditTime     time.Time
-	BlackList      bool
-	Active         bool
-	ActiveLastTime time.Time
+	User       string
+	Pass       string
+	CreditTime time.Time
+}
+
+type Credit struct {
+	User string
+	Pass string
 }
 
 // Collector - query collector
 type Collector struct {
+	BlackList     map[Credit]time.Time
 	Credentials   map[string]*Credential
+	Admins        []string
+	Dmicp         Credential
+	CredentialInt int
 	Tables        map[string]*Table
 	mu            sync.RWMutex
 	Count         int
@@ -69,29 +74,36 @@ func NewTable(name string, sender Sender, count int, interval int) (t *Table) {
 }
 
 // NewCredential - default credential constructor
-func NewCredential(user string, pass string) (credential *Credential) {
+func NewCredential(user string, pass string, interval int) (credential *Credential) {
 	credential = new(Credential)
 	credential.User = user
 	credential.Pass = pass
-	credential.Credit = true
-	credential.CreditTime = time.Now().Add(24 * time.Hour)
-	credential.BlackList = false
-	credential.Active = false
-	credential.ActiveLastTime = time.Now().Add(10 * time.Minute)
+	credential.CreditTime = time.Now().Add(time.Duration(interval) * time.Minute)
 	return credential
 }
 
+func NewCredit(user string, pass string) (credit *Credit) {
+	credit = new(Credit)
+	credit.User = user
+	credit.Pass = pass
+	return credit
+}
+
 // NewCollector - default collector constructor
-func NewCollector(sender Sender, count int, interval int, cleanInterval int, removeQueryID bool) (c *Collector) {
+func NewCollector(sender Sender, cnf Config) (c *Collector) {
 	c = new(Collector)
 	c.Sender = sender
+	c.BlackList = make(map[Credit]time.Time)
 	c.Credentials = make(map[string]*Credential)
+	c.Admins = cnf.Admins
+	c.Dmicp = *NewCredential(cnf.DmicpLogin, cnf.DmicpPass, 0)
 	c.Tables = make(map[string]*Table)
-	c.Count = count
-	c.FlushInterval = interval
-	c.CleanInterval = cleanInterval
-	c.RemoveQueryID = removeQueryID
-	if cleanInterval > 0 {
+	c.Count = cnf.FlushCount
+	c.CredentialInt = cnf.CredInterval
+	c.FlushInterval = cnf.FlushInterval
+	c.CleanInterval = cnf.CleanInterval
+	c.RemoveQueryID = cnf.RemoveQueryID
+	if cnf.CleanInterval > 0 {
 		c.TickerChan = c.RunTimer()
 	}
 	return c
@@ -303,9 +315,14 @@ func (c *Collector) addTable(name string) *Table {
 
 // Generate new credential object
 func (c *Collector) addCredential(user string, pass string) *Credential {
-	credential := NewCredential(user, pass)
+	credential := NewCredential(user, pass, c.CredentialInt)
 	c.Credentials[user] = credential
 	return credential
+}
+
+func (c *Collector) addBlacklist(user string, pass string, interval int) {
+	credit := NewCredit(user, pass)
+	c.BlackList[*credit] = time.Now().Add(time.Duration(interval) * time.Minute)
 }
 
 // Push - adding query to collector with query params (with query) and rows
@@ -347,35 +364,60 @@ func (c *Collector) Push(paramsIn string, content string) {
 
 const (
 	Admin = iota
-	Normal
-	Blacklist
-	Unknown
+	User
 	Dmicp
 )
 
 // Check role for current user;
-// return "admin" if user in adminlist;
-// return "normal" if user Credential.Blacklist = 0;
-// return "blacklist" if user Credential.Blacklist = 1;
-// return "unknown" if user not in Credentials map.
 func (c *Collector) Role(user string) int {
-	if user == dmicp_login {
+	if user == c.Dmicp.User {
 		return Dmicp
 	}
-	for _, admin := range admins {
+	for _, admin := range c.Admins {
 		if user == admin {
 			return Admin
 		}
 	}
-	credetial, ok := c.Credentials[user]
+	return User
+}
+
+// Check if user exist in credentials map
+func (c *Collector) CredentialExist(user string) bool {
+	_, ok := c.Credentials[user]
 	if ok {
-		if !credetial.BlackList {
-			return Normal
-		} else {
-			return Blacklist
-		}
+		return true
+	} else {
+		return false
 	}
-	return Unknown
+}
+
+// Check if pass matches password saved in credentials
+func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
+	if c.Credentials[user].Pass == pass {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Returns true if user in BlackList
+func (c *Collector) BlackListExist(credit Credit) bool {
+	_, ok := c.BlackList[credit]
+	if ok {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Returns true if Blacklist time ended
+func (c *Collector) BlackListTimeEnded(credit Credit) bool {
+	t := c.BlackList[credit]
+	if t.After(time.Now()) {
+		return true
+	} else {
+		return false
+	}
 }
 
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)

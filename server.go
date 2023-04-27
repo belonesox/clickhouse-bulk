@@ -44,38 +44,16 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 }
 
 // CheckUserClickHouse - Check user pass with "SELECT 1" query;
-// return true and add user to Credentials if credentials accepted by CH
-func (server *Server) CHCheckCredentialsUser(user string, pass string) {
+// return true if credentials accepted by CH
+func (server *Server) CHCheckCredentialsUser(user string, pass string) bool {
 	s := "SELECT 1"
 	qs := "user=" + user + "&password=" + pass
 	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	credential, exist := server.Collector.Credentials[user]
 	if status == http.StatusOK {
-		if exist {
-			credential.BlackList = false
-			credential.Active = true
-			if server.Debug {
-				log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - OK \n", user)
-			}
-			return
-		}
-		server.Collector.addCredential(user, pass)
-		if server.Debug {
-			log.Printf("DEBUG: CheckUserInCH [%+v] successfully added \n", user)
-		}
-		return
+		return true
+	} else {
+		return false
 	}
-	if exist {
-		if !credential.BlackList {
-			departmentsBlocked.Inc()
-			credential.BlackList = true
-			credential.Active = false
-		}
-	}
-	if server.Debug {
-		log.Printf("DEBUG: CheckUserInCH [%+v] credentials checked STATUS - PERMISSION DENIED \n", user)
-	}
-	return
 }
 
 func (s *Server) ChanelCHCredentials(period time.Duration) {
@@ -97,9 +75,6 @@ func (s *Server) CHCheckCredentialsAll() {
 	for user := range s.Collector.Credentials {
 		credential := s.Collector.Credentials[user]
 		s.CHCheckCredentialsUser(user, credential.Pass)
-		if credential.Active && credential.ActiveLastTime.After(time.Now()) {
-			active_departs++
-		}
 	}
 	activeDeparts.Set(float64(active_departs))
 }
@@ -121,10 +96,13 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 // UserWriteHandler - implemtn querys from ordinary users;
 // login and password changed with dmicp
 func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
+	dmicp := server.Collector.Dmicp
+	dmicpUser := dmicp.User
+	dmicpPass := dmicp.Pass
 	if qs == "" {
-		qs = "user=" + dmicp_login + "&password=" + dmicp_password
+		qs = "user=" + dmicpUser + "&password=" + dmicpPass
 	} else {
-		qs = "user=" + dmicp_login + "&password=" + dmicp_password + "&" + qs
+		qs = "user=" + dmicpUser + "&password=" + dmicpPass + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
 	if insert && !strings.Contains(s, "SELECT") {
@@ -136,7 +114,6 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
-		server.Collector.Credentials[user].ActiveLastTime = time.Now().Add(10 * time.Minute)
 		if server.Debug {
 			log.Printf("DEBUG: UserWriteHandler pushed content:[%+v] with params: [%+v]\n", content, params)
 		}
@@ -155,6 +132,14 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 	}
 }
 
+func (s *Server) checkInCH(user string, pass string) {
+	if s.CHCheckCredentialsUser(user, pass) {
+		s.Collector.addCredential(user, pass)
+	} else {
+		s.Collector.addBlacklist(user, pass, s.Collector.CredentialInt)
+	}
+}
+
 func (server *Server) writeHandler(c echo.Context) error {
 	if server.Debug {
 		log.Printf("DEBUG: writeHandler: Tables count: [%+v]\n", len(server.Collector.Tables))
@@ -165,8 +150,9 @@ func (server *Server) writeHandler(c echo.Context) error {
 	if server.Debug {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
+	collector := server.Collector
 	if ok {
-		role := server.Collector.Role(user)
+		role := collector.Role(user)
 		qs := c.QueryString()
 		switch role {
 		case Dmicp:
@@ -174,13 +160,25 @@ func (server *Server) writeHandler(c echo.Context) error {
 			return c.String(http.StatusForbidden, "")
 		case Admin:
 			return server.AdminWriteHandler(c, s, qs, user, pass)
-		case Normal:
-			return server.UserWriteHandler(c, s, qs, user, pass)
-		case Unknown:
-			server.Collector.addCredential(user, pass)
-		default:
-			log.Printf("There is no [%+v] user in CH or password incorrect", user)
-			return c.String(http.StatusForbidden, "")
+		case User:
+			if collector.CredentialExist(user) {
+				if collector.PasswordMatchCredential(user, pass) {
+					return server.UserWriteHandler(c, s, qs, user, pass)
+				} else {
+					return c.String(http.StatusUnauthorized, "")
+				}
+			} else {
+				credit := Credit{user, pass}
+				if collector.BlackListExist(credit) {
+					if collector.BlackListTimeEnded(credit) {
+						server.checkInCH(user, pass)
+					} else {
+						collector.addBlacklist(user, pass, collector.CredentialInt)
+					}
+				} else {
+					server.checkInCH(user, pass)
+				}
+			}
 		}
 	}
 	return c.String(http.StatusBadRequest, "Authentication failed because of bad request")
@@ -267,7 +265,7 @@ func RunServer(cnf Config) {
 		targets_ = append(targets_, &pt_)
 	}
 
-	collect := NewCollector(sender, cnf.FlushCount, cnf.FlushInterval, cnf.CleanInterval, cnf.RemoveQueryID)
+	collect := NewCollector(sender, cnf)
 
 	// send collected data on SIGTERM and exit
 	signals := make(chan os.Signal)
