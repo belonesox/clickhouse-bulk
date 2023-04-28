@@ -321,12 +321,21 @@ func (c *Collector) addTable(name string) *Table {
 func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass, c.CredentialInt)
 	c.Credentials[user] = credential
+	credit := Credit{user, pass}
+	if c.BlackListExist(credit) {
+		delete(c.BlackList, credit)
+	}
+	activeDeparts.Inc()
 	return credential
 }
 
 func (c *Collector) addBlacklist(user string, pass string, interval int) {
 	credit := NewCredit(user, pass)
 	c.BlackList[*credit] = AddTime(interval)
+	if c.CredentialExist(user) {
+		delete(c.Credentials, user)
+	}
+	activeDeparts.Dec()
 }
 
 // Push - adding query to collector with query params (with query) and rows
@@ -404,9 +413,19 @@ func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
 	}
 }
 
-// Returns true if user in BlackList
+// Returns true if credit in BlackList
 func (c *Collector) BlackListExist(credit Credit) bool {
 	_, ok := c.BlackList[credit]
+	if ok {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Returns true if user in Credentials
+func (c *Collector) CredentialsExist(user string) bool {
+	_, ok := c.Credentials[user]
 	if ok {
 		return true
 	} else {

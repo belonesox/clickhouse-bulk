@@ -72,7 +72,6 @@ func (s *Server) CHCheckCredentialsAll() {
 	if s.Debug {
 		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
 	}
-	active_departs := 0
 	for user := range s.Collector.Credentials {
 		credential := s.Collector.Credentials[user]
 		if credential.CreditTime.After(time.Now()) {
@@ -81,7 +80,6 @@ func (s *Server) CHCheckCredentialsAll() {
 			}
 		}
 	}
-	activeDeparts.Set(float64(active_departs))
 }
 
 // AdminWriteHandler - implemtn querys from admin users;

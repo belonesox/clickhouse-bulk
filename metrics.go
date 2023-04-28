@@ -7,12 +7,12 @@ import (
 var pushCounter prometheus.Counter
 var sentCounter prometheus.Counter
 var dumpCounter prometheus.Counter
+var activeDeparts prometheus.Gauge
 var goodServers prometheus.Gauge
 var badServers prometheus.Gauge
 var queuedDumps prometheus.Gauge
 var departmentsBlocked prometheus.Gauge
 var rowsInserted prometheus.Gauge
-var activeDeparts prometheus.Gauge
 var flushIntervals prometheus.Histogram
 var flushCounts prometheus.Histogram
 var userButch prometheus.Histogram
@@ -45,6 +45,12 @@ func InitMetrics(cnf Config) {
 			Help: "Dumps saved from launch",
 		})
 
+	activeDeparts = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ch_active_departs",
+			Help: "Inc department if it connected to bulk, Dec if department send to Blacklist",
+		})
+
 	goodServers = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "ch_good_servers",
@@ -73,12 +79,6 @@ func InitMetrics(cnf Config) {
 		prometheus.GaugeOpts{
 			Name: "ch_rows_inserted",
 			Help: "Rows inserted",
-		})
-
-	activeDeparts = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "ch_active_departs",
-			Help: "If users from current departmet try to send query and this deparment !blocked it is active",
 		})
 
 	flushIntervals = prometheus.NewHistogram(
