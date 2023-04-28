@@ -156,17 +156,13 @@ func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, us
 			log.Printf("DEBUG: UserWriteHandler pushed content:[%+v] with params: [%+v]\n", content, params)
 		}
 		return c.String(http.StatusOK, "")
-	} else if strings.HasPrefix(s, "SELECT count() FROM system.databases") ||
-		strings.HasPrefix(s, "SELECT version()") ||
-		strings.HasPrefix(s, "SELECT timezone()") {
-		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-		if server.Debug {
-			log.Printf("DEBUG: UserWriteHandler find SELECT version/ timezone/ ... from system.database in query\n")
-		}
-		return c.String(status, resp)
-	} else {
+	} else if !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
+		strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
 		log.Printf("DEBUG: User [%+v] without admin credentials try to SELECT\n", user)
 		return c.String(http.StatusForbidden, "")
+	} else {
+		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+		return c.String(status, resp)
 	}
 }
 
