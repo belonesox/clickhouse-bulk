@@ -66,6 +66,8 @@ INSERT INTO table3 (c1, c2, c3) VALUES ('v1', 'v2', 'v3')('v4', 'v5', 'v6')
   "admins": ["admin"], // admins can do any querys
   "credentials_checker_interval": 60, // interval to check if user exist in clickhouse (minutes)
   "dmicp_pass": "xxx", // password for dmicp user
+  "spectator_rows": 6, // rows per minute from spectator (used only for metric)
+  "spectator_butch": 100, // maximum rows per minut from user (used only for metric)
   "clickhouse": {
     "down_timeout": 60, // wait if server in down (seconds)
     "connect_timeout": 10, // wait for server connect (seconds)

@@ -33,6 +33,8 @@ type Config struct {
 	CredInterval      int              `json:"credentials_checker_interval"`
 	DmicpLogin        string           `json:"dmicp_login"`
 	DmicpPass         string           `json:"dmicp_pass"`
+	SpectatorRows     int              `json:"spectator_rows"`
+	SpectatorButch    int              `json:"spectator_butch"`
 }
 
 // ReadJSON - read json file to struct
