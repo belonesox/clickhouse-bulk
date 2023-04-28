@@ -77,6 +77,8 @@ func (s *Server) CHCheckCredentialsAll() {
 		if credential.CreditTime.After(time.Now()) {
 			if s.CHCheckCredentialsUser(user, credential.Pass) {
 				credential.CreditTime = AddTime(s.Collector.CredentialInt)
+			} else {
+				s.Collector.addBlacklist(credential.User, credential.Pass, s.Collector.CredentialInt)
 			}
 		}
 	}

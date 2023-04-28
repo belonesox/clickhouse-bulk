@@ -73,6 +73,7 @@ func NewTable(name string, sender Sender, count int, interval int) (t *Table) {
 	return t
 }
 
+// AddTime returns current time + interval
 func AddTime(interval int) time.Time {
 	return time.Now().Add(time.Duration(interval) * time.Minute)
 }
