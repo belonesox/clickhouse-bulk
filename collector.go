@@ -73,12 +73,16 @@ func NewTable(name string, sender Sender, count int, interval int) (t *Table) {
 	return t
 }
 
+func AddTime(interval int) time.Time {
+	return time.Now().Add(time.Duration(interval) * time.Minute)
+}
+
 // NewCredential - default credential constructor
 func NewCredential(user string, pass string, interval int) (credential *Credential) {
 	credential = new(Credential)
 	credential.User = user
 	credential.Pass = pass
-	credential.CreditTime = time.Now().Add(time.Duration(interval) * time.Minute)
+	credential.CreditTime = AddTime(interval)
 	return credential
 }
 
@@ -322,7 +326,7 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 
 func (c *Collector) addBlacklist(user string, pass string, interval int) {
 	credit := NewCredit(user, pass)
-	c.BlackList[*credit] = time.Now().Add(time.Duration(interval) * time.Minute)
+	c.BlackList[*credit] = AddTime(interval)
 }
 
 // Push - adding query to collector with query params (with query) and rows

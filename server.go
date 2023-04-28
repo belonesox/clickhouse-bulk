@@ -67,6 +67,7 @@ func (s *Server) ChanelCHCredentials(period time.Duration) {
 	}
 }
 
+// CHCheckCredentialsAll - check all users in Credential map with CH, update CreditTime, set metric with active departments
 func (s *Server) CHCheckCredentialsAll() {
 	if s.Debug {
 		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
@@ -74,7 +75,11 @@ func (s *Server) CHCheckCredentialsAll() {
 	active_departs := 0
 	for user := range s.Collector.Credentials {
 		credential := s.Collector.Credentials[user]
-		s.CHCheckCredentialsUser(user, credential.Pass)
+		if credential.CreditTime.After(time.Now()) {
+			if s.CHCheckCredentialsUser(user, credential.Pass) {
+				credential.CreditTime = AddTime(s.Collector.CredentialInt)
+			}
+		}
 	}
 	activeDeparts.Set(float64(active_departs))
 }
