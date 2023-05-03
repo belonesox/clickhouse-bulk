@@ -138,12 +138,10 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 // login and password changed with dmicp
 func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, user string, pass string) error {
 	dmicp := server.Collector.Dmicp
-	dmicpUser := dmicp.Login
-	dmicpPass := dmicp.Pass
 	if qs == "" {
-		qs = "user=" + dmicpUser + "&password=" + dmicpPass
+		qs = "user=" + dmicp.Login + "&password=" + dmicp.Pass
 	} else {
-		qs = "user=" + dmicpUser + "&password=" + dmicpPass + "&" + qs
+		qs = "user=" + dmicp.Login + "&password=" + dmicp.Pass + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
 	if insert && !strings.Contains(s, "SELECT") {

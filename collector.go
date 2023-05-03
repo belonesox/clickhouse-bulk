@@ -395,14 +395,16 @@ func (c *Collector) Push(paramsIn string, content string) {
 	pushCounter.Inc()
 }
 
+type Role uint
+
 const (
-	Admin = iota
+	Admin Role = iota
 	User
 	Dmicp
 )
 
 // Check role for current user;
-func (c *Collector) identifyRole(user string) int {
+func (c *Collector) identifyRole(user string) Role {
 	if user == c.Dmicp.Login {
 		return Dmicp
 	}
