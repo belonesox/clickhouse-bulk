@@ -103,9 +103,11 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 
 // Checking user with CH, returns ImplementUserQuery if OK or 401 error if not
 func (server *Server) Checking(user string, pass string, c echo.Context, s string, qs string) error {
-	if server.checkInCH(user, pass) {
+	if server.CHCheckCredentialsUser(user, pass) {
+		server.Collector.addCredential(user, pass)
 		return server.ImplementUserQuery(c, s, qs, user, pass)
 	} else {
+		server.Collector.addBlacklist(user, pass, server.Collector.CredentialInt)
 		return c.String(http.StatusUnauthorized, "")
 	}
 }
@@ -164,17 +166,6 @@ func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, us
 	} else {
 		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
 		return c.String(status, resp)
-	}
-}
-
-// checkInCH - if user approved by CH add credentials, otherwise add user to BL
-func (s *Server) checkInCH(user string, pass string) bool {
-	if s.CHCheckCredentialsUser(user, pass) {
-		s.Collector.addCredential(user, pass)
-		return true
-	} else {
-		s.Collector.addBlacklist(user, pass, s.Collector.CredentialInt)
-		return false
 	}
 }
 
