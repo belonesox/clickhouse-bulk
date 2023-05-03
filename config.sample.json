@@ -19,7 +19,7 @@
     "tls_server_name": "",
     "insecure_tls_skip_verify": false,
     "servers": [
-      "http://10.11.20.97:8129"
+      "http://10.11.20.143:8129"
     ]
   }
 }

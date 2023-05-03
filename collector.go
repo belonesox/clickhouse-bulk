@@ -37,7 +37,7 @@ type Table struct {
 type Credential struct {
 	User       string
 	Pass       string
-	CreditTime time.Time
+	CreditTime time.Time // Time when credential ends
 }
 
 type Credit struct {
@@ -45,11 +45,15 @@ type Credit struct {
 	Pass string
 }
 
+type void struct{}
+
+var voidV void
+
 // Collector - query collector
 type Collector struct {
 	BlackList     map[Credit]time.Time
 	Credentials   map[string]*Credential
-	Admins        []string
+	Admins        map[string]void
 	Dmicp         Credential
 	CredentialInt int
 	Tables        map[string]*Table
@@ -100,7 +104,10 @@ func NewCollector(sender Sender, cnf Config) (c *Collector) {
 	c.Sender = sender
 	c.BlackList = make(map[Credit]time.Time)
 	c.Credentials = make(map[string]*Credential)
-	c.Admins = cnf.Admins
+	c.Admins = make(map[string]void)
+	for _, admin := range cnf.Admins {
+		c.Admins[admin] = voidV
+	}
 	c.Dmicp = *NewCredential(cnf.DmicpLogin, cnf.DmicpPass, 0)
 	c.Tables = make(map[string]*Table)
 	c.Count = cnf.FlushCount
@@ -395,7 +402,7 @@ func (c *Collector) Role(user string) int {
 	if user == c.Dmicp.User {
 		return Dmicp
 	}
-	for _, admin := range c.Admins {
+	for admin := range c.Admins {
 		if user == admin {
 			return Admin
 		}
