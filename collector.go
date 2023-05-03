@@ -419,11 +419,7 @@ func (c *Collector) CredentialExist(user string) bool {
 	c.mu.RLock()
 	_, ok := c.Credentials[user]
 	c.mu.RUnlock()
-	if ok {
-		return true
-	} else {
-		return false
-	}
+	return ok
 }
 
 // Check if pass matches password saved in credentials
@@ -443,11 +439,7 @@ func (c *Collector) BlackListExist(credit Account) bool {
 	c.mu.RLock()
 	_, ok := c.BlackList[credit]
 	c.mu.RUnlock()
-	if ok {
-		return true
-	} else {
-		return false
-	}
+	return ok
 }
 
 // Returns true if Blacklist time ended
