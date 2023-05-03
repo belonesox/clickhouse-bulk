@@ -355,11 +355,6 @@ func (c *Collector) addBlacklist(user string, pass string, interval int) {
 	c.mu.Lock()
 	c.BlackList[*credit] = AddTime(interval)
 	c.mu.Unlock()
-	if c.CredentialExist(user) {
-		c.mu.Lock()
-		delete(c.Credentials, user)
-		c.mu.Unlock()
-	}
 	activeDeparts.Dec()
 }
 
