@@ -69,18 +69,19 @@ func (s *Server) ChanelCHCredentials(period time.Duration) {
 
 // CHCheckCredentialsAll - check all users in Credential map with CH, update CreditTime, set metric with active departments
 func (s *Server) CHCheckCredentialsAll() {
+	c := s.Collector
 	if s.Debug {
-		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
+		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(c.Credentials))
 	}
-	s.Collector.mu.Lock()
-	defer s.Collector.mu.Unlock()
-	for user := range s.Collector.Credentials {
-		credential := s.Collector.Credentials[user]
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for user := range c.Credentials {
+		credential := c.Credentials[user]
 		if credential.CreditTime.After(time.Now()) {
-			if s.CHCheckCredentialsUser(user, credential.Pass) {
-				credential.CreditTime = AddTime(s.Collector.CredentialInt)
+			if s.CHCheckCredentialsUser(user, credential.Account.Pass) {
+				credential.CreditTime = AddTime(c.CredentialInt)
 			} else {
-				s.Collector.addBlacklist(credential.User, credential.Pass, s.Collector.CredentialInt)
+				c.addBlacklist(credential.Account.Login, credential.Account.Pass, c.CredentialInt)
 			}
 		}
 	}
@@ -119,7 +120,7 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 			return c.String(http.StatusUnauthorized, "")
 		}
 	} else {
-		credit := Credit{user, pass}
+		credit := Account{user, pass}
 		if collector.BlackListExist(credit) {
 			if collector.BlackListTimeEnded(credit) {
 				return server.Checking(user, pass, c, s, qs)
@@ -137,8 +138,8 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 // login and password changed with dmicp
 func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, user string, pass string) error {
 	dmicp := server.Collector.Dmicp
-	dmicpUser := dmicp.User
-	dmicpPass := dmicp.Pass
+	dmicpUser := dmicp.Account.Login
+	dmicpPass := dmicp.Account.Pass
 	if qs == "" {
 		qs = "user=" + dmicpUser + "&password=" + dmicpPass
 	} else {

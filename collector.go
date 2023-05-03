@@ -35,14 +35,13 @@ type Table struct {
 }
 
 type Credential struct {
-	User       string
-	Pass       string
+	Account    Account
 	CreditTime time.Time // Time when credential ends
 }
 
-type Credit struct {
-	User string
-	Pass string
+type Account struct {
+	Login string
+	Pass  string
 }
 
 type void struct{}
@@ -51,7 +50,7 @@ var voidV void
 
 // Collector - query collector
 type Collector struct {
-	BlackList     map[Credit]time.Time
+	BlackList     map[Account]time.Time
 	Credentials   map[string]*Credential
 	Admins        map[string]void
 	Dmicp         Credential
@@ -85,15 +84,14 @@ func AddTime(interval int) time.Time {
 // NewCredential - default credential constructor
 func NewCredential(user string, pass string, interval int) (credential *Credential) {
 	credential = new(Credential)
-	credential.User = user
-	credential.Pass = pass
+	credential.Account = *NewAccount(user, pass)
 	credential.CreditTime = AddTime(interval)
 	return credential
 }
 
-func NewCredit(user string, pass string) (credit *Credit) {
-	credit = new(Credit)
-	credit.User = user
+func NewAccount(user string, pass string) (credit *Account) {
+	credit = new(Account)
+	credit.Login = user
 	credit.Pass = pass
 	return credit
 }
@@ -102,7 +100,7 @@ func NewCredit(user string, pass string) (credit *Credit) {
 func NewCollector(sender Sender, cnf Config) (c *Collector) {
 	c = new(Collector)
 	c.Sender = sender
-	c.BlackList = make(map[Credit]time.Time)
+	c.BlackList = make(map[Account]time.Time)
 	c.Credentials = make(map[string]*Credential)
 	c.Admins = make(map[string]void)
 	for _, admin := range cnf.Admins {
@@ -333,7 +331,7 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 	c.Credentials[user] = credential
 	c.mu.Unlock()
 
-	credit := Credit{user, pass}
+	credit := Account{user, pass}
 	if c.BlackListExist(credit) {
 		delete(c.BlackList, credit)
 	}
@@ -342,7 +340,7 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 }
 
 func (c *Collector) addBlacklist(user string, pass string, interval int) {
-	credit := NewCredit(user, pass)
+	credit := NewAccount(user, pass)
 	c.mu.Lock()
 	c.BlackList[*credit] = AddTime(interval)
 	c.mu.Unlock()
@@ -399,7 +397,7 @@ const (
 
 // Check role for current user;
 func (c *Collector) Role(user string) int {
-	if user == c.Dmicp.User {
+	if user == c.Dmicp.Account.Login {
 		return Dmicp
 	}
 	for admin := range c.Admins {
@@ -425,7 +423,7 @@ func (c *Collector) CredentialExist(user string) bool {
 // Check if pass matches password saved in credentials
 func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
 	c.mu.RLock()
-	userPass := c.Credentials[user].Pass
+	userPass := c.Credentials[user].Account.Pass
 	c.mu.RUnlock()
 	if userPass == pass {
 		return true
@@ -435,7 +433,7 @@ func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
 }
 
 // Returns true if credit in BlackList
-func (c *Collector) BlackListExist(credit Credit) bool {
+func (c *Collector) BlackListExist(credit Account) bool {
 	c.mu.RLock()
 	_, ok := c.BlackList[credit]
 	c.mu.RUnlock()
@@ -447,7 +445,7 @@ func (c *Collector) BlackListExist(credit Credit) bool {
 }
 
 // Returns true if Blacklist time ended
-func (c *Collector) BlackListTimeEnded(credit Credit) bool {
+func (c *Collector) BlackListTimeEnded(credit Account) bool {
 	t := c.BlackList[credit]
 	if t.After(time.Now()) {
 		return true
