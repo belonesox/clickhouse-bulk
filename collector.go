@@ -53,7 +53,7 @@ type Collector struct {
 	BlackList     map[Account]time.Time
 	Credentials   map[string]*Credential
 	Admins        map[string]void
-	Dmicp         Credential
+	Dmicp         Account
 	CredentialInt int
 	Tables        map[string]*Table
 	mu            sync.RWMutex
@@ -106,7 +106,7 @@ func NewCollector(sender Sender, cnf Config) (c *Collector) {
 	for _, admin := range cnf.Admins {
 		c.Admins[admin] = voidV
 	}
-	c.Dmicp = *NewCredential(cnf.DmicpLogin, cnf.DmicpPass, 0)
+	c.Dmicp = *NewAccount(cnf.DmicpLogin, cnf.DmicpPass)
 	c.Tables = make(map[string]*Table)
 	c.Count = cnf.FlushCount
 	c.CredentialInt = cnf.CredInterval
@@ -397,7 +397,7 @@ const (
 
 // Check role for current user;
 func (c *Collector) Role(user string) int {
-	if user == c.Dmicp.Account.Login {
+	if user == c.Dmicp.Login {
 		return Dmicp
 	}
 	for admin := range c.Admins {
