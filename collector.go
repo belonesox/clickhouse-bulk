@@ -402,7 +402,7 @@ const (
 )
 
 // Check role for current user;
-func (c *Collector) Role(user string) int {
+func (c *Collector) identifyRole(user string) int {
 	if user == c.Dmicp.Login {
 		return Dmicp
 	}

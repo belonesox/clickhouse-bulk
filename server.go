@@ -192,7 +192,7 @@ func (server *Server) writeHandler(c echo.Context) error {
 	}
 	collector := server.Collector
 	if ok {
-		role := collector.Role(user)
+		role := collector.identifyRole(user)
 		qs := c.QueryString()
 		switch role {
 		case Dmicp:
