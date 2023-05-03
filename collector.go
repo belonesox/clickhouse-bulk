@@ -324,9 +324,13 @@ func (c *Collector) addTable(name string) *Table {
 }
 
 func (c *Collector) deleteFromBlacklist(login string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for account := range c.BlackList {
 		if account.Login == login {
+			c.mu.Lock()
 			delete(c.BlackList, account)
+			c.mu.Unlock()
 		}
 	}
 }
