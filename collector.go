@@ -323,6 +323,14 @@ func (c *Collector) addTable(name string) *Table {
 	return t
 }
 
+func (c *Collector) deleteFromBlacklist(login string) {
+	for account := range c.BlackList {
+		if account.Login == login {
+			delete(c.BlackList, account)
+		}
+	}
+}
+
 // Generate new credential object
 func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass, c.CredentialInt)
@@ -331,10 +339,9 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 	c.Credentials[user] = credential
 	c.mu.Unlock()
 
-	credit := Account{user, pass}
-	if c.BlackListExist(credit) {
-		delete(c.BlackList, credit)
-	}
+	account := Account{user, pass}
+	c.deleteFromBlacklist(account.Login)
+
 	activeDeparts.Inc()
 	return credential
 }
