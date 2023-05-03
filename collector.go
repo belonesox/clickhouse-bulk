@@ -321,7 +321,11 @@ func (c *Collector) addTable(name string) *Table {
 // Generate new credential object
 func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass, c.CredentialInt)
+
+	c.mu.Lock()
 	c.Credentials[user] = credential
+	c.mu.Unlock()
+
 	credit := Credit{user, pass}
 	if c.BlackListExist(credit) {
 		delete(c.BlackList, credit)
@@ -332,9 +336,13 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 
 func (c *Collector) addBlacklist(user string, pass string, interval int) {
 	credit := NewCredit(user, pass)
+	c.mu.Lock()
 	c.BlackList[*credit] = AddTime(interval)
+	c.mu.Unlock()
 	if c.CredentialExist(user) {
+		c.mu.Lock()
 		delete(c.Credentials, user)
+		c.mu.Unlock()
 	}
 	activeDeparts.Dec()
 }
@@ -397,7 +405,9 @@ func (c *Collector) Role(user string) int {
 
 // Check if user exist in credentials map
 func (c *Collector) CredentialExist(user string) bool {
+	c.mu.RLock()
 	_, ok := c.Credentials[user]
+	c.mu.RUnlock()
 	if ok {
 		return true
 	} else {
@@ -407,7 +417,10 @@ func (c *Collector) CredentialExist(user string) bool {
 
 // Check if pass matches password saved in credentials
 func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
-	if c.Credentials[user].Pass == pass {
+	c.mu.RLock()
+	userPass := c.Credentials[user].Pass
+	c.mu.RUnlock()
+	if userPass == pass {
 		return true
 	} else {
 		return false
@@ -416,17 +429,9 @@ func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
 
 // Returns true if credit in BlackList
 func (c *Collector) BlackListExist(credit Credit) bool {
+	c.mu.RLock()
 	_, ok := c.BlackList[credit]
-	if ok {
-		return true
-	} else {
-		return false
-	}
-}
-
-// Returns true if user in Credentials
-func (c *Collector) CredentialsExist(user string) bool {
-	_, ok := c.Credentials[user]
+	c.mu.RUnlock()
 	if ok {
 		return true
 	} else {

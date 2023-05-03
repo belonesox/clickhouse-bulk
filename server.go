@@ -72,6 +72,8 @@ func (s *Server) CHCheckCredentialsAll() {
 	if s.Debug {
 		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(s.Collector.Credentials))
 	}
+	s.Collector.mu.Lock()
+	defer s.Collector.mu.Unlock()
 	for user := range s.Collector.Credentials {
 		credential := s.Collector.Credentials[user]
 		if credential.CreditTime.After(time.Now()) {
