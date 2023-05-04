@@ -342,11 +342,10 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 	c.mu.Lock()
 	c.Credentials[user] = credential
 	c.mu.Unlock()
+	activeDeparts.Set(float64(len(c.Credentials)))
 
 	account := Account{user, pass}
 	c.deleteFromBlacklist(account.Login)
-
-	activeDeparts.Inc()
 	return credential
 }
 
@@ -355,7 +354,7 @@ func (c *Collector) addBlacklist(user string, pass string, interval int) {
 	c.mu.Lock()
 	c.BlackList[*credit] = AddTime(interval)
 	c.mu.Unlock()
-	activeDeparts.Dec()
+	activeDeparts.Set(float64(len(c.Credentials)))
 }
 
 // Push - adding query to collector with query params (with query) and rows
