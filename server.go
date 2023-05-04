@@ -127,7 +127,6 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 			if collector.BlackListTimeEnded(credit) {
 				return server.UserActions(user, pass, c, s, qs)
 			} else {
-				collector.addBlacklist(user, pass, collector.CredentialInt)
 				return c.String(http.StatusForbidden, "")
 			}
 		} else {
