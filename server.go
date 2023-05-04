@@ -102,7 +102,7 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 }
 
 // Checking user with CH, returns ImplementUserQuery if OK or 401 error if not
-func (server *Server) Checking(user string, pass string, c echo.Context, s string, qs string) error {
+func (server *Server) UserActions(user string, pass string, c echo.Context, s string, qs string) error {
 	if server.CHCheckCredentialsUser(user, pass) {
 		server.Collector.addCredential(user, pass)
 		return server.ImplementUserQuery(c, s, qs, user, pass)
