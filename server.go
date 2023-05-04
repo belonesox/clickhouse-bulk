@@ -101,7 +101,7 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 	return c.String(status, resp)
 }
 
-// Checking user with CH, returns ImplementUserQuery if OK or 401 error if not
+// UserActions user with CH, returns ImplementUserQuery if OK or 401 error if not
 func (server *Server) UserActions(user string, pass string, c echo.Context, s string, qs string) error {
 	if server.CHCheckCredentialsUser(user, pass) {
 		server.Collector.addCredential(user, pass)
@@ -125,13 +125,13 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 		credit := Account{user, pass}
 		if collector.BlackListExist(credit) {
 			if collector.BlackListTimeEnded(credit) {
-				return server.Checking(user, pass, c, s, qs)
+				return server.UserActions(user, pass, c, s, qs)
 			} else {
 				collector.addBlacklist(user, pass, collector.CredentialInt)
 				return c.String(http.StatusForbidden, "")
 			}
 		} else {
-			return server.Checking(user, pass, c, s, qs)
+			return server.UserActions(user, pass, c, s, qs)
 		}
 	}
 }
