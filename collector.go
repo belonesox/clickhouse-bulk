@@ -429,11 +429,7 @@ func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
 	c.mu.RLock()
 	userPass := c.Credentials[user].Account.Pass
 	c.mu.RUnlock()
-	if userPass == pass {
-		return true
-	} else {
-		return false
-	}
+	return userPass == pass
 }
 
 // Returns true if credit in BlackList
@@ -447,11 +443,7 @@ func (c *Collector) BlackListExist(credit Account) bool {
 // Returns true if Blacklist time ended
 func (c *Collector) BlackListTimeEnded(credit Account) bool {
 	t := c.BlackList[credit]
-	if t.After(time.Now()) {
-		return true
-	} else {
-		return false
-	}
+	return t.After(time.Now())
 }
 
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)
