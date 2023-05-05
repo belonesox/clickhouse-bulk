@@ -340,9 +340,12 @@ func (c *Collector) addCredential(user string, pass string) *Credential {
 	credential := NewCredential(user, pass, c.CredentialInt)
 
 	c.mu.Lock()
-	c.Credentials[user] = credential
+	_, ok := c.Credentials[user]
+	if !ok {
+		c.Credentials[user] = credential
+		activeDeparts.Set(float64(len(c.Credentials)))
+	}
 	c.mu.Unlock()
-	activeDeparts.Set(float64(len(c.Credentials)))
 
 	account := Account{user, pass}
 	c.deleteFromBlacklist(account.Login)
