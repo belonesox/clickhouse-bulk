@@ -17,8 +17,8 @@ var flushIntervals prometheus.Histogram
 var flushCounts prometheus.Histogram
 var userButch prometheus.Histogram
 
-func Width(flush_count int) (width float64) {
-	return float64(flush_count) / 5
+func Width(flush_count int, buckets int) (width float64) {
+	return float64(flush_count) / float64(buckets)
 }
 
 func Start(width float64) (start float64) {
@@ -88,13 +88,14 @@ func InitMetrics(cnf Config) {
 			Buckets: prometheus.ExponentialBucketsRange(1, (float64(cnf.FlushInterval)/1000)*1.2, 5),
 		})
 
-	width := Width(cnf.FlushCount)
+	buckets := 10
+	width := Width(cnf.FlushCount, buckets)
 	start := Start(width)
 	flushCounts = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "ch_flush_counts",
 			Help:    "Accumulats info about how many rows were send in each insert to CH",
-			Buckets: prometheus.LinearBuckets(start, width, 5),
+			Buckets: prometheus.LinearBuckets(start, width, buckets),
 		})
 
 	userButch = prometheus.NewHistogram(
