@@ -29,6 +29,12 @@ type Config struct {
 	DumpCheckInterval int              `json:"dump_check_interval"`
 	DumpDir           string           `json:"dump_dir"`
 	Debug             bool             `json:"debug"`
+	Admins            []string         `json:"admins"`
+	CredInterval      int              `json:"credentials_checker_interval"`
+	DmicpLogin        string           `json:"dmicp_login"`
+	DmicpPass         string           `json:"dmicp_pass"`
+	SpectatorRows     int              `json:"spectator_rows"`
+	SpectatorButch    int              `json:"spectator_butch"`
 }
 
 // ReadJSON - read json file to struct

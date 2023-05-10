@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"net/url"
 	"regexp"
 	"strings"
@@ -24,6 +25,7 @@ type Table struct {
 	Rows          []string
 	count         int
 	FlushCount    int
+	lastFlush     time.Time
 	FlushInterval int
 	mu            sync.Mutex
 	Sender        Sender
@@ -32,8 +34,27 @@ type Table struct {
 	// todo add Last Error
 }
 
+type Credential struct {
+	Account    Account
+	CreditTime time.Time // Time when credential ends
+}
+
+type Account struct {
+	Login string
+	Pass  string
+}
+
+type void struct{}
+
+var voidV void
+
 // Collector - query collector
 type Collector struct {
+	BlackList     map[Account]time.Time
+	Credentials   map[string]*Credential
+	Admins        map[string]void
+	Dmicp         Account
+	CredentialInt int
 	Tables        map[string]*Table
 	mu            sync.RWMutex
 	Count         int
@@ -51,19 +72,48 @@ func NewTable(name string, sender Sender, count int, interval int) (t *Table) {
 	t.Sender = sender
 	t.FlushCount = count
 	t.FlushInterval = interval
+	t.lastFlush = time.Now()
 	return t
 }
 
+// AddTime returns current time + interval
+func AddTime(interval int) time.Time {
+	return time.Now().Add(time.Duration(interval) * time.Minute)
+}
+
+// NewCredential - default credential constructor
+func NewCredential(user string, pass string, interval int) (credential *Credential) {
+	credential = new(Credential)
+	credential.Account = *NewAccount(user, pass)
+	credential.CreditTime = AddTime(interval)
+	return credential
+}
+
+func NewAccount(user string, pass string) (credit *Account) {
+	credit = new(Account)
+	credit.Login = user
+	credit.Pass = pass
+	return credit
+}
+
 // NewCollector - default collector constructor
-func NewCollector(sender Sender, count int, interval int, cleanInterval int, removeQueryID bool) (c *Collector) {
+func NewCollector(sender Sender, cnf Config) (c *Collector) {
 	c = new(Collector)
 	c.Sender = sender
+	c.BlackList = make(map[Account]time.Time)
+	c.Credentials = make(map[string]*Credential)
+	c.Admins = make(map[string]void)
+	for _, admin := range cnf.Admins {
+		c.Admins[admin] = voidV
+	}
+	c.Dmicp = *NewAccount(cnf.DmicpLogin, cnf.DmicpPass)
 	c.Tables = make(map[string]*Table)
-	c.Count = count
-	c.FlushInterval = interval
-	c.CleanInterval = cleanInterval
-	c.RemoveQueryID = removeQueryID
-	if cleanInterval > 0 {
+	c.Count = cnf.FlushCount
+	c.CredentialInt = cnf.CredInterval
+	c.FlushInterval = cnf.FlushInterval
+	c.CleanInterval = cnf.CleanInterval
+	c.RemoveQueryID = cnf.RemoveQueryID
+	if cnf.CleanInterval > 0 {
 		c.TickerChan = c.RunTimer()
 	}
 	return c
@@ -87,9 +137,13 @@ func (t *Table) Flush() {
 		Count:    len(t.Rows),
 		isInsert: true,
 	}
+	flushIntervals.Observe(float64(time.Now().Sub(t.lastFlush)) / math.Pow(10, 9))
+	flushCounts.Observe(float64(len(t.Rows)))
+	rowsInserted.Add(float64(req.Count))
 	t.Sender.Send(&req)
 	t.Rows = make([]string, 0, t.FlushCount)
 	t.count = 0
+	t.lastFlush = time.Now()
 }
 
 // CheckFlush - check if flush is need and sends data to clickhouse
@@ -138,11 +192,14 @@ func (t *Table) Add(text string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.count++
+	r_prev := len(t.Rows)
 	if t.Format == "TabSeparated" {
 		t.Rows = append(t.Rows, strings.Split(text, "\n")...)
 	} else {
 		t.Rows = append(t.Rows, text)
 	}
+	r_post := len(t.Rows)
+	userButch.Observe(float64(r_post - r_prev))
 	if len(t.Rows) >= t.FlushCount {
 		t.Flush()
 	}
@@ -266,6 +323,43 @@ func (c *Collector) addTable(name string) *Table {
 	return t
 }
 
+func (c *Collector) deleteFromBlacklist(login string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for account := range c.BlackList {
+		if account.Login == login {
+			c.mu.Lock()
+			delete(c.BlackList, account)
+			c.mu.Unlock()
+		}
+	}
+}
+
+// Generate new credential object
+func (c *Collector) addCredential(user string, pass string) *Credential {
+	credential := NewCredential(user, pass, c.CredentialInt)
+
+	c.mu.Lock()
+	_, ok := c.Credentials[user]
+	if !ok {
+		c.Credentials[user] = credential
+		activeDeparts.Set(float64(len(c.Credentials)))
+	}
+	c.mu.Unlock()
+
+	account := Account{user, pass}
+	c.deleteFromBlacklist(account.Login)
+	return credential
+}
+
+func (c *Collector) addBlacklist(user string, pass string, interval int) {
+	credit := NewAccount(user, pass)
+	c.mu.Lock()
+	c.BlackList[*credit] = AddTime(interval)
+	c.mu.Unlock()
+	activeDeparts.Set(float64(len(c.Credentials)))
+}
+
 // Push - adding query to collector with query params (with query) and rows
 func (c *Collector) Push(paramsIn string, content string) {
 	// as we are using all params as a table key, we have to remove query_id
@@ -301,6 +395,57 @@ func (c *Collector) Push(paramsIn string, content string) {
 	table.Add(content)
 	c.mu.Unlock()
 	pushCounter.Inc()
+}
+
+type Role uint
+
+const (
+	Admin Role = iota
+	User
+	Dmicp
+)
+
+// Check role for current user;
+func (c *Collector) identifyRole(user string) Role {
+	if user == c.Dmicp.Login {
+		return Dmicp
+	}
+	for admin := range c.Admins {
+		if user == admin {
+			return Admin
+		}
+	}
+	return User
+}
+
+// Check if user exist in credentials map
+func (c *Collector) CredentialExist(user string) bool {
+	c.mu.RLock()
+	_, ok := c.Credentials[user]
+	c.mu.RUnlock()
+	return ok
+}
+
+// Check if pass matches password saved in credentials
+func (c *Collector) PasswordMatchCredential(user string, pass string) bool {
+	c.mu.RLock()
+	userPass := c.Credentials[user].Account.Pass
+	c.mu.RUnlock()
+	return userPass == pass
+}
+
+// Returns true if credit in BlackList
+func (c *Collector) BlackListExist(credit Account) bool {
+	c.mu.RLock()
+	_, ok := c.BlackList[credit]
+	c.mu.RUnlock()
+	return ok
+}
+
+// Returns true if Blacklist time ended
+func (c *Collector) BlackListTimeEnded(credit Account) bool {
+	t := c.BlackList[credit]
+	return t.After(time.Now())
 }
 
 // ParseQuery - parsing inbound query to unified format (params/query), content (query data)

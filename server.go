@@ -43,39 +43,156 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 	return &Server{listen, collector, debug, echo.New()}
 }
 
-func (server *Server) writeHandler(c echo.Context) error {
-	q, _ := ioutil.ReadAll(c.Request().Body)
-	s := string(q)
-
-	if server.Debug {
-		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
+// CheckUserClickHouse - Check user pass with "SELECT 1" query;
+// return true if credentials accepted by CH
+func (server *Server) CHCheckCredentialsUser(user string, pass string) bool {
+	s := "SELECT 1"
+	qs := "user=" + user + "&password=" + pass
+	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+	if status == http.StatusOK {
+		return true
+	} else {
+		return false
 	}
+}
 
-	qs := c.QueryString()
-	user, password, ok := c.Request().BasicAuth()
-	if ok {
-		if qs == "" {
-			qs = "user=" + user + "&password=" + password
-		} else {
-			qs = "user=" + user + "&password=" + password + "&" + qs
+func (s *Server) ChanelCHCredentials(period time.Duration) {
+	t := time.NewTicker(period * time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			s.CHCheckCredentialsAll()
 		}
 	}
+}
+
+// CHCheckCredentialsAll - check all users in Credential map with CH, update CreditTime, set metric with active departments
+func (s *Server) CHCheckCredentialsAll() {
+	c := s.Collector
+	if s.Debug {
+		log.Printf("Checking credentials for all (%+v) users in map Credentials", len(c.Credentials))
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for user := range c.Credentials {
+		credential := c.Credentials[user]
+		if credential.CreditTime.After(time.Now()) {
+			if s.CHCheckCredentialsUser(user, credential.Account.Pass) {
+				credential.CreditTime = AddTime(c.CredentialInt)
+			} else {
+				c.addBlacklist(credential.Account.Login, credential.Account.Pass, c.CredentialInt)
+			}
+		}
+	}
+}
+
+// AdminWriteHandler - implemtn querys from admin users;
+func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
+	if server.Debug {
+		log.Printf("DEBUG: AdminWriteHandler\n")
+	}
+	if qs == "" {
+		qs = "user=" + user + "&password=" + pass
+	} else {
+		qs = "user=" + user + "&password=" + pass + "&" + qs
+	}
+	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+	return c.String(status, resp)
+}
+
+// UserActions user with CH, returns ImplementUserQuery if OK or 401 error if not
+func (server *Server) UserActions(user string, pass string, c echo.Context, s string, qs string) error {
+	if server.CHCheckCredentialsUser(user, pass) {
+		server.Collector.addCredential(user, pass)
+		return server.ImplementUserQuery(c, s, qs, user, pass)
+	} else {
+		server.Collector.addBlacklist(user, pass, server.Collector.CredentialInt)
+		return c.String(http.StatusUnauthorized, "")
+	}
+}
+
+// UserWriteHandler - implement querys from users;
+func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user string, pass string) error {
+	collector := server.Collector
+	if collector.CredentialExist(user) {
+		if collector.PasswordMatchCredential(user, pass) {
+			return server.ImplementUserQuery(c, s, qs, user, pass)
+		} else {
+			return c.String(http.StatusUnauthorized, "")
+		}
+	} else {
+		credit := Account{user, pass}
+		if collector.BlackListExist(credit) {
+			if collector.BlackListTimeEnded(credit) {
+				return server.UserActions(user, pass, c, s, qs)
+			} else {
+				return c.String(http.StatusForbidden, "")
+			}
+		} else {
+			return server.UserActions(user, pass, c, s, qs)
+		}
+	}
+}
+
+// ImplementUserQuery - implemtn querys from ordinary users;
+// login and password changed with dmicp
+func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, user string, pass string) error {
+	dmicp := server.Collector.Dmicp
+	if qs == "" {
+		qs = "user=" + dmicp.Login + "&password=" + dmicp.Pass
+	} else {
+		qs = "user=" + dmicp.Login + "&password=" + dmicp.Pass + "&" + qs
+	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
-	if insert {
+	if insert && !strings.Contains(s, "SELECT") {
+		if server.Debug {
+			log.Printf("DEBUG: UserWriteHandler find INSERT in query\n")
+		}
 		if len(content) == 0 {
 			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
+		if server.Debug {
+			log.Printf("DEBUG: UserWriteHandler pushed content:[%+v] with params: [%+v]\n", content, params)
+		}
 		return c.String(http.StatusOK, "")
-	}
-	// Disabling SELECT for non-admin users
-	if user != "admin" && !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
+	} else if !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
 		strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
-		return c.String(http.StatusOK, "")
+		log.Printf("DEBUG: User [%+v] without admin credentials try to SELECT\n", user)
+		return c.String(http.StatusForbidden, "")
+	} else {
+		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+		return c.String(status, resp)
 	}
-	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	return c.String(status, resp)
+}
+
+func (server *Server) writeHandler(c echo.Context) error {
+	if server.Debug {
+		log.Printf("DEBUG: writeHandler: Tables count: [%+v]\n", len(server.Collector.Tables))
+	}
+	q, _ := ioutil.ReadAll(c.Request().Body)
+	s := string(q)
+	user, pass, ok := c.Request().BasicAuth()
+	if server.Debug {
+		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
+	}
+	collector := server.Collector
+	if ok {
+		role := collector.identifyRole(user)
+		qs := c.QueryString()
+		switch role {
+		case Dmicp:
+			log.Printf("Direct connection with dmicp_login forbidden")
+			return c.String(http.StatusForbidden, "")
+		case Admin:
+			return server.AdminWriteHandler(c, s, qs, user, pass)
+		case User:
+			return server.UserWriteHandler(c, s, qs, user, pass)
+		}
+	}
+	return c.String(http.StatusBadRequest, "Authentication failed because of bad request")
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
@@ -147,7 +264,7 @@ func SafeQuit(collect *Collector, sender Sender) {
 
 // RunServer - run all
 func RunServer(cnf Config) {
-	InitMetrics()
+	InitMetrics(cnf)
 	dumper := NewDumper(cnf.DumpDir)
 	sender := NewClickhouse(cnf.Clickhouse.DownTimeout, cnf.Clickhouse.ConnectTimeout, cnf.Clickhouse.tlsServerName, cnf.Clickhouse.tlsSkipVerify)
 	sender.Dumper = dumper
@@ -159,7 +276,7 @@ func RunServer(cnf Config) {
 		targets_ = append(targets_, &pt_)
 	}
 
-	collect := NewCollector(sender, cnf.FlushCount, cnf.FlushInterval, cnf.CleanInterval, cnf.RemoveQueryID)
+	collect := NewCollector(sender, cnf)
 
 	// send collected data on SIGTERM and exit
 	signals := make(chan os.Signal)
@@ -167,6 +284,20 @@ func RunServer(cnf Config) {
 
 	srv := InitServer(cnf.Listen, collect, cnf.Debug)
 	srv.echo.Group("/play*", middleware.Proxy(middleware.NewRoundRobinBalancer(targets_)))
+
+	//credential updating
+	go func() {
+		for {
+			ctxCHCredentialsChecker := context.Background()
+			ctxCHCredentialsChecker, CHCredentialsCancel := context.WithCancel(ctxCHCredentialsChecker)
+			defer CHCredentialsCancel()
+			go srv.ChanelCHCredentials(time.Duration(cnf.CredInterval))
+			select {
+			case <-ctxCHCredentialsChecker.Done():
+				log.Printf("INFO: stop using Blacklist")
+			}
+		}
+	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -185,7 +316,6 @@ func RunServer(cnf Config) {
 	if cnf.DumpCheckInterval >= 0 {
 		dumper.Listen(sender, cnf.DumpCheckInterval)
 	}
-
 	err := srv.Start()
 	if err != nil {
 		log.Printf("ListenAndServe: %+v\n", err)

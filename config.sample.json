@@ -1,19 +1,25 @@
 {
-  "listen": ":8124",
-  "flush_count": 10000,
-  "flush_interval": 1000,
+  "listen": ":8123",
+  "flush_count": 100000,
+  "flush_interval": 10000,
   "clean_interval": 0,
   "remove_query_id": true,
   "dump_check_interval": 300,
-  "debug": false,
+  "debug": true,
   "dump_dir": "dumps",
+  "admins": ["admin"],
+  "credentials_checker_interval": 1,
+  "dmicp_pass": "passdmicp",
+  "dmicp_login": "departmentdmicp",
+  "spectator_rows": 6, 
+  "spectator_butch": 100,
   "clickhouse": {
     "down_timeout": 60,
     "connect_timeout": 10,
     "tls_server_name": "",
     "insecure_tls_skip_verify": false,
     "servers": [
-      "http://192.168.4.105:8129"
+      "http://10.11.20.143:8129"
     ]
   }
 }
