@@ -17,9 +17,10 @@
     "down_timeout": 60,
     "connect_timeout": 10,
     "tls_server_name": "",
+    "tls_root_cert_path": "",
     "insecure_tls_skip_verify": false,
     "servers": [
-      "http://10.11.20.143:8129"
+      "http://10.11.20.145:8129"
     ]
   }
 }

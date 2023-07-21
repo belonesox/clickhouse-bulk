@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -49,9 +50,22 @@ var ErrServerIsDown = errors.New("server is down")
 // ErrNoServers - signals about no working servers
 var ErrNoServers = errors.New("No working clickhouse servers")
 
+func createCertPool(certPath string) *x509.CertPool {
+	caCert, err := ioutil.ReadFile(certPath)
+	if err != nil {
+		log.Fatalf("Error opening cert file %s, Error: %s", certPath, err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	return caCertPool
+}
+
 // NewClickhouse - get clickhouse object
-func NewClickhouse(downTimeout int, connectTimeout int, tlsServerName string, tlsSkipVerify bool) (c *Clickhouse) {
+func NewClickhouse(downTimeout int, connectTimeout int, tlsServerName string, tlsSkipVerify bool, tlsRootCertPath string) (c *Clickhouse) {
 	tlsConfig := &tls.Config{}
+	if tlsRootCertPath != "" {
+		tlsConfig.RootCAs = createCertPool(tlsRootCertPath)
+	}
 	if tlsServerName != "" {
 		tlsConfig.ServerName = tlsServerName
 	}

@@ -11,11 +11,12 @@ import (
 const sampleConfig = "config.sample.json"
 
 type clickhouseConfig struct {
-	Servers        []string `json:"servers"`
-	tlsServerName  string   `json:"tls_server_name"`
-	tlsSkipVerify  bool     `json:"insecure_tls_skip_verify"`
-	DownTimeout    int      `json:"down_timeout"`
-	ConnectTimeout int      `json:"connect_timeout"`
+	Servers         []string `json:"servers"`
+	tlsServerName   string   `json:"tls_server_name"`
+	TlsRootCertPath string   `json:"tls_root_cert_path"`
+	tlsSkipVerify   bool     `json:"insecure_tls_skip_verify"`
+	DownTimeout     int      `json:"down_timeout"`
+	ConnectTimeout  int      `json:"connect_timeout"`
 }
 
 // Config stores config data

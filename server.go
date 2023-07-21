@@ -266,7 +266,7 @@ func SafeQuit(collect *Collector, sender Sender) {
 func RunServer(cnf Config) {
 	InitMetrics(cnf)
 	dumper := NewDumper(cnf.DumpDir)
-	sender := NewClickhouse(cnf.Clickhouse.DownTimeout, cnf.Clickhouse.ConnectTimeout, cnf.Clickhouse.tlsServerName, cnf.Clickhouse.tlsSkipVerify)
+	sender := NewClickhouse(cnf.Clickhouse.DownTimeout, cnf.Clickhouse.ConnectTimeout, cnf.Clickhouse.tlsServerName, cnf.Clickhouse.tlsSkipVerify, cnf.Clickhouse.TlsRootCertPath)
 	sender.Dumper = dumper
 	targets_ := make([]*middleware.ProxyTarget, 0)
 	for _, url_ := range cnf.Clickhouse.Servers {
