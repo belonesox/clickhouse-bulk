@@ -213,6 +213,7 @@ func (srv *ClickhouseServer) SendQuery(r *ClickhouseRequest) (response string, s
 		resp, err := srv.Client.Post(url, "text/plain", strings.NewReader(r.Content))
 		if err != nil {
 			srv.Bad = true
+			log.Printf("INFO: recive error %+v with response from CH %+v", err, resp)
 			return err.Error(), http.StatusBadGateway, ErrServerIsDown
 		}
 		if r.isInsert {
