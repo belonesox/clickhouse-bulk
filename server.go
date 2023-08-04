@@ -147,13 +147,13 @@ func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, us
 		qs = "user=" + dmicp.Login + "&password=" + dmicp.Pass + "&" + qs
 	}
 	params, content, insert := server.Collector.ParseQuery(qs, s)
-	if len(content) == 0 {
-		log.Printf("INFO: empty query params: [%+v] content: [%+v]\n", params, content)
-		return c.String(http.StatusInternalServerError, "Empty insert\n")
-	}
 	if insert && !strings.Contains(s, "SELECT") {
 		if server.Debug {
 			log.Printf("DEBUG: UserWriteHandler find INSERT in query\n")
+		}
+		if len(content) == 0 {
+			log.Printf("INFO: empty query params: [%+v] content: [%+v]\n", params, content)
+			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
 		if server.Debug {
