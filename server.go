@@ -45,15 +45,11 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 
 // CheckUserClickHouse - Check user pass with "SELECT 1" query;
 // return true if credentials accepted by CH
-func (server *Server) CHCheckCredentialsUser(user string, pass string) bool {
+func (server *Server) CHCheckCredentialsUser(user string, pass string) int {
 	s := "SELECT 1"
 	qs := "user=" + user + "&password=" + pass
 	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	if status == http.StatusOK {
-		return true
-	} else {
-		return false
-	}
+	return status
 }
 
 func (s *Server) ChanelCHCredentials(period time.Duration) {
@@ -78,9 +74,11 @@ func (s *Server) CHCheckCredentialsAll() {
 	for user := range c.Credentials {
 		credential := c.Credentials[user]
 		if credential.CreditTime.After(time.Now()) {
-			if s.CHCheckCredentialsUser(user, credential.Account.Pass) {
+			status := s.CHCheckCredentialsUser(user, credential.Account.Pass)
+			switch status {
+			case http.StatusOK:
 				credential.CreditTime = AddTime(c.CredentialInt)
-			} else {
+			case 516: //Code: 516, Message: default: Authentication failed: password is incorrect or there is no user with such name
 				c.addBlacklist(credential.Account.Login, credential.Account.Pass, c.CredentialInt)
 			}
 		}
