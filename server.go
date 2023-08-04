@@ -78,7 +78,7 @@ func (s *Server) CHCheckCredentialsAll() {
 			switch status {
 			case http.StatusOK:
 				credential.CreditTime = AddTime(c.CredentialInt)
-			case 516: //Code: 516, Message: default: Authentication failed: password is incorrect or there is no user with such name
+			case 516: //Code - Authentication failed: password is incorrect or there is no user with such name
 				c.addBlacklist(credential.Account.Login, credential.Account.Pass, c.CredentialInt)
 			}
 		}
@@ -101,12 +101,16 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 
 // UserActions user with CH, returns ImplementUserQuery if OK or 401 error if not
 func (server *Server) UserActions(user string, pass string, c echo.Context, s string, qs string) error {
-	if server.CHCheckCredentialsUser(user, pass) {
+	status := server.CHCheckCredentialsUser(user, pass)
+	switch status {
+	case http.StatusOK:
 		server.Collector.addCredential(user, pass)
 		return server.ImplementUserQuery(c, s, qs, user, pass)
-	} else {
+	case 516:
 		server.Collector.addBlacklist(user, pass, server.Collector.CredentialInt)
 		return c.String(http.StatusUnauthorized, "")
+	default:
+		return c.String(status, "!200 CH status code, can't implement query now")
 	}
 }
 
