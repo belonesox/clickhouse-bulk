@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -135,6 +136,23 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 	}
 }
 
+// ChPlaygroundWriteHandler - implement querys from ClickHouse Play interface;
+func (server *Server) ChPlaygroundWriteHandler(c echo.Context, s string, qs string) error {
+	re := regexp.MustCompile(`&user=(\w*)&`)
+	user := re.FindStringSubmatch(qs)[1]
+	if re == nil {
+		log.Printf("INFO: can`t parse user name from request: [%+v]\n", qs)
+		return c.String(http.StatusBadRequest, "Dmicp can`t find user name in your request")
+	}
+	role := server.Collector.identifyRole(user)
+	if role != Admin {
+		log.Printf("INFO: User [%+v] without admin credentials try to SELECT\n", user)
+		return c.String(http.StatusForbidden, "You are not in admin list")
+	}
+	resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
+	return c.String(status, resp)
+}
+
 // ImplementUserQuery - implemtn querys from ordinary users;
 // login and password changed with dmicp
 func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, user string, pass string) error {
@@ -160,8 +178,8 @@ func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, us
 		return c.String(http.StatusOK, "")
 	} else if !strings.HasPrefix(s, "SELECT count() FROM system.databases") &&
 		strings.Contains(s, "SELECT") && strings.Contains(s, "FROM") {
-		log.Printf("DEBUG: User [%+v] without admin credentials try to SELECT\n", user)
-		return c.String(http.StatusForbidden, "")
+		log.Printf("INFO: User [%+v] without admin credentials try to SELECT\n", user)
+		return c.String(http.StatusForbidden, "You are not in admin list")
 	} else {
 		resp, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
 		return c.String(status, resp)
@@ -179,9 +197,10 @@ func (server *Server) writeHandler(c echo.Context) error {
 		log.Printf("DEBUG: query %+v %+v\n", c.QueryString(), s)
 	}
 	collector := server.Collector
+	qs := c.QueryString()
+	// ok - user query with BasicAuthentification
 	if ok {
 		role := collector.identifyRole(user)
-		qs := c.QueryString()
 		switch role {
 		case Dmicp:
 			log.Printf("Direct connection with dmicp_login forbidden")
@@ -192,7 +211,8 @@ func (server *Server) writeHandler(c echo.Context) error {
 			return server.UserWriteHandler(c, s, qs, user, pass)
 		}
 	}
-	return c.String(http.StatusBadRequest, "Authentication failed because of bad request")
+	// not ok - try to parse user name and implement query
+	return server.ChPlaygroundWriteHandler(c, s, qs)
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
