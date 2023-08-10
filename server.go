@@ -208,7 +208,7 @@ func (server *Server) writeHandler(c echo.Context) error {
 	}
 	// not ok - try to parse user name and implement query
 	referer := c.Request().Header["Referer"][0]
-	re := regexp.MustCompile(`/play/`)
+	re := regexp.MustCompile(`https?://(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}:\d{1,5}\b/play`)
 	play := re.MatchString(referer)
 	if play {
 		return server.ChPlaygroundWriteHandler(c, s, qs)
