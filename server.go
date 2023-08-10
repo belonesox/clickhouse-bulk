@@ -138,12 +138,7 @@ func (server *Server) UserWriteHandler(c echo.Context, s string, qs string, user
 
 // ChPlaygroundWriteHandler - implement querys from ClickHouse Play interface;
 func (server *Server) ChPlaygroundWriteHandler(c echo.Context, s string, qs string) error {
-	re := regexp.MustCompile(`&user=(\w*)&`)
-	user := re.FindStringSubmatch(qs)[1]
-	if re == nil {
-		log.Printf("INFO: can`t parse user name from request: [%+v]\n", qs)
-		return c.String(http.StatusBadRequest, "Dmicp can`t find user name in your request")
-	}
+	user := c.QueryParam(`user`)
 	role := server.Collector.identifyRole(user)
 	if role != Admin {
 		log.Printf("INFO: User [%+v] without admin credentials try to SELECT\n", user)
@@ -212,7 +207,13 @@ func (server *Server) writeHandler(c echo.Context) error {
 		}
 	}
 	// not ok - try to parse user name and implement query
-	return server.ChPlaygroundWriteHandler(c, s, qs)
+	referer := c.Request().Header["Referer"][0]
+	re := regexp.MustCompile(`/play/`)
+	play := re.MatchString(referer)
+	if play {
+		return server.ChPlaygroundWriteHandler(c, s, qs)
+	}
+	return c.String(http.StatusBadRequest, "Dmicp can`t parse this request")
 }
 
 func (server *Server) statusHandler(c echo.Context) error {
