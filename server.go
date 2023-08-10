@@ -108,7 +108,7 @@ func (server *Server) UserActions(user string, pass string, c echo.Context, s st
 		return server.ImplementUserQuery(c, s, qs, user, pass)
 	case 516:
 		server.Collector.addBlacklist(user, pass, server.Collector.CredentialInt)
-		return c.String(http.StatusUnauthorized, "")
+		return c.String(status, "ClickHouse authentication failed")
 	default:
 		return c.String(status, "!200 CH status code, can't implement query now")
 	}
