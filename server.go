@@ -46,15 +46,11 @@ func NewServer(listen string, collector *Collector, debug bool) *Server {
 
 // CheckUserClickHouse - Check user pass with "SELECT 1" query;
 // return true if credentials accepted by CH
-func (server *Server) CHCheckCredentialsUser(user string, pass string) bool {
+func (server *Server) CHCheckCredentialsUser(user string, pass string) int {
 	s := "SELECT 1"
 	qs := "user=" + user + "&password=" + pass
 	_, status, _ := server.Collector.Sender.SendQuery(&ClickhouseRequest{Params: qs, Content: s, isInsert: false})
-	if status == http.StatusOK {
-		return true
-	} else {
-		return false
-	}
+	return status
 }
 
 func (s *Server) ChanelCHCredentials(period time.Duration) {
@@ -79,9 +75,11 @@ func (s *Server) CHCheckCredentialsAll() {
 	for user := range c.Credentials {
 		credential := c.Credentials[user]
 		if credential.CreditTime.After(time.Now()) {
-			if s.CHCheckCredentialsUser(user, credential.Account.Pass) {
+			status := s.CHCheckCredentialsUser(user, credential.Account.Pass)
+			switch status {
+			case http.StatusOK:
 				credential.CreditTime = AddTime(c.CredentialInt)
-			} else {
+			case 516: //Code - Authentication failed: password is incorrect or there is no user with such name
 				c.addBlacklist(credential.Account.Login, credential.Account.Pass, c.CredentialInt)
 			}
 		}
@@ -104,12 +102,16 @@ func (server *Server) AdminWriteHandler(c echo.Context, s string, qs string, use
 
 // UserActions user with CH, returns ImplementUserQuery if OK or 401 error if not
 func (server *Server) UserActions(user string, pass string, c echo.Context, s string, qs string) error {
-	if server.CHCheckCredentialsUser(user, pass) {
+	status := server.CHCheckCredentialsUser(user, pass)
+	switch status {
+	case http.StatusOK:
 		server.Collector.addCredential(user, pass)
 		return server.ImplementUserQuery(c, s, qs, user, pass)
-	} else {
+	case 516:
 		server.Collector.addBlacklist(user, pass, server.Collector.CredentialInt)
-		return c.String(http.StatusUnauthorized, "")
+		return c.String(status, "ClickHouse authentication failed")
+	default:
+		return c.String(status, "!200 CH status code, can't implement query now")
 	}
 }
 
@@ -163,7 +165,7 @@ func (server *Server) ImplementUserQuery(c echo.Context, s string, qs string, us
 			log.Printf("DEBUG: UserWriteHandler find INSERT in query\n")
 		}
 		if len(content) == 0 {
-			log.Printf("INFO: empty insert params: [%+v] content: [%+v]\n", params, content)
+			log.Printf("INFO: empty query params: [%+v] content: [%+v]\n", params, content)
 			return c.String(http.StatusInternalServerError, "Empty insert\n")
 		}
 		go server.Collector.Push(params, content)
